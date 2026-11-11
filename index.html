@@ -173,6 +173,30 @@
     #flash { position: fixed; inset: 0; pointer-events: none; border: 8px solid var(--ink); opacity: 0; transition: opacity 0.3s; z-index: 20; }
     #flash.on { opacity: 1; transition: none; }
 
+    [hidden] { display: none !important; }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    .set-group { border-top: 1px solid var(--ink); padding-top: 0.8rem; display: flex; flex-direction: column; gap: 0.6rem; }
+    .set-group h3 { font: 700 12px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+    .set-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-weight: 700; }
+    .set-row .in { width: 160px; }
+    .set-row input[type=checkbox] { width: 1.15rem; height: 1.15rem; accent-color: var(--ink); }
+    .legal { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 0.6rem; }
+    .legal b { color: var(--ink); }
+    .legal a, .about a { color: var(--ink); }
+    .about-head { display: flex; flex-direction: column; gap: 0.3rem; }
+    .about-head .brand { font-size: 2.2rem; }
+    pre.debug { font: 11px/1.4 var(--mono); border: 1px solid var(--soft); padding: 0.6rem; white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow: auto; color: var(--muted); }
+    .lib-sub { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-top: 0.3rem; }
+    .in-cad { width: 104px; }
+    .cell.off .val { text-decoration: underline; text-decoration-thickness: 4px; text-underline-offset: 7px; }
+    .zrow { display: grid; grid-template-columns: 170px 1fr 110px; gap: 0.6rem; align-items: center; font-size: 12px; margin-bottom: 0.3rem; }
+    .zbar { display: block; height: 10px; background: var(--ink); }
+    #resumeText { font-weight: 700; }
+    ol.steps { padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.3rem; }
+    body.focus > header, body.focus > footer, body.focus > section.panel:not(#tlPanel), body.focus #tlPanel .hint, body.focus #welcome, body.focus #resumeBar, body.focus #selBar { display: none !important; }
+    body.focus .val { font-size: 4.6rem; }
+    body.focus .val.time { font-size: clamp(2rem, 6vw, 4.4rem); }
+    body.focus #profileCanvas { height: 34vh; }
     @media (max-width: 700px) {
       body { padding: 0.75rem; gap: 0.9rem; }
       .brand { font-size: 1.6rem; }
@@ -200,10 +224,28 @@
       <button id="btnConnectHR">Pair HR strap</button>
       <button id="btnConnectPM" title="Use your bike's Bluetooth power meter as the power source for ERG, display and recording">Pair power meter</button>
       <button id="btnDisconnect" disabled title="Disconnect the trainer, the power meter and the HR strap">Disconnect all</button>
-      <button id="btnTheme" title="Switch between dark and light">Light mode</button>
+      <button id="btnSettings">Settings</button>
+      <button id="btnAbout">About</button>
     </div>
   </header>
   <div id="btWarn" class="warn" hidden></div>
+  <div id="resumeBar" class="warn" hidden>
+    <div id="resumeText"></div>
+    <div class="btn-group" style="margin-top:0.6rem;">
+      <button id="btnResume" class="primary">Restore ride</button>
+      <button id="btnResumeFit">Save as .FIT</button>
+      <button id="btnResumeDiscard">Discard</button>
+    </div>
+  </div>
+  <section id="welcome" class="panel" hidden>
+    <h2>Welcome</h2>
+    <ol class="steps">
+      <li>Press <b>Pair trainer</b>. Add a power meter and a heart-rate strap if you have them.</li>
+      <li>Open <b>Settings</b> and enter your FTP.</li>
+      <li>Pick a workout from the library at the bottom, or build your own, then press <b>Start session</b>.</li>
+    </ol>
+    <div class="btn-group"><button id="btnWelcomeOk" class="primary">Got it</button></div>
+  </section>
   <div id="status"></div>
   <div id="notice"></div>
 
@@ -222,12 +264,12 @@
     <div class="cell">
       <div class="label">Cadence (rpm):</div>
       <div class="val" id="valCadence">--</div>
-      <div class="sub"></div>
+      <div class="sub" id="subCadence"></div>
     </div>
     <div class="cell">
       <div class="label">Heart rate (bpm):</div>
       <div class="val" id="valHR">--</div>
-      <div class="sub"></div>
+      <div class="sub" id="subHR"></div>
     </div>
     <div class="cell span2">
       <div class="label">Session (elapsed / total):</div>
@@ -242,7 +284,7 @@
   </div>
 
   <!-- Timeline -->
-  <section class="panel">
+  <section class="panel" id="tlPanel">
     <div class="tl-head">
       <span id="intervalInfo">Ready to start</span>
       <span id="timeInfo">00:00 / 00:00</span>
@@ -262,6 +304,7 @@
       <button id="btnExportFIT" disabled>Export .FIT</button>
       <button id="btnSummary" disabled>Summary</button>
       <button id="btnHistory">History</button>
+      <button id="btnFull" title="Show only the live numbers and the graph">Full screen</button>
     </div>
 
     <div class="btn-group">
@@ -274,22 +317,6 @@
       <button id="btnDecWatt">-5W</button>
       <button id="btnIncWatt">+5W</button>
     </div>
-  </div>
-
-  <!-- Settings -->
-  <div class="settings">
-    <label>FTP <input type="number" id="setFtp" class="in" style="width:80px" min="50" max="600"> W</label>
-    <label>Weight <input type="number" id="setWeight" class="in" style="width:100px" min="0" max="250" placeholder="optional"> kg</label>
-    <label>Smooth transitions
-      <select id="setSmooth" class="in">
-        <option value="0">Off</option>
-        <option value="3">3 s</option>
-        <option value="5">5 s</option>
-      </select>
-    </label>
-    <label><input type="checkbox" id="setSound"> Sound cues</label>
-    <div class="hint">Shortcuts: Space start/pause &middot; Up/Down nudge (while riding) &middot; Right skip interval &middot; Ctrl+Z / Ctrl+Y undo / redo. Weight is used for W/kg only: the standard trainer protocol has no setting for it.</div>
-    <div class="hint">With a power meter paired, ERG follows the meter: about once a second the app fine-tunes the target it sends the trainer until the meter shows the target power. After a big step change (for example 180 to 240 W) it can take up to about 15 seconds to settle, and your power may be off the target for part of that time. No calibration is stored. If the meter signal drops, the app shows the trainer's reading and holds the last adjustment.</div>
   </div>
 
   <!-- Planner -->
@@ -321,12 +348,14 @@
       <select id="inputUnit" class="in" style="width:90px" aria-label="Power unit">
         <option value="w">W</option>
         <option value="pct">%FTP</option>
+        <option value="max">MAX</option>
       </select>
+      <input type="text" id="inputCad" class="in" style="width:104px" placeholder="rpm 90-100" title="Optional cadence range, for example 90-100" aria-label="Cadence range (optional)">
       <input type="text" id="inputName" class="in in-wide" placeholder="Name (e.g. Warmup)" value="Interval">
       <button id="btnAddStep">+ Add step</button>
       <button id="btnAddGroup" title="Add a repeat block, e.g. 5 x (3 min on / 2 min off)">+ Repeat block</button>
     </div>
-    <div class="hint">Leave "ramp to" blank for a steady interval. Fill it in (e.g. 100 &rarr; 200) and the target rises or falls continuously. Change any value directly in the cards below, move cards with the arrow buttons or by dragging the dotted handle.</div>
+    <div class="hint">Leave "ramp to" blank for a steady interval. Fill it in (e.g. 100 &rarr; 200) and the target rises or falls continuously. Change any value directly in the cards below, move cards with the arrow buttons or by dragging the dotted handle. Choose MAX for an all-out effort with no target power (the trainer gives a fixed low resistance, set in Settings). Cadence is optional, for example 90-100: the cadence number is underlined when you are outside the range.</div>
 
     <div id="planner"></div>
   </section>
@@ -340,11 +369,14 @@
         <button id="btnLibSave">Save current workout</button>
       </div>
     </div>
+    <div class="lib-sub">Starter workouts (% of your FTP)</div>
+    <div class="lib-list" id="starterList"></div>
+    <div class="lib-sub">Your workouts</div>
     <div class="lib-list" id="libList"></div>
   </section>
 
   <footer>
-    <span><b>ZERO FLUFF // MAX EFFORT</b></span>
+    <span><b>ZER<sup>O</sup> FAMILY</b> &middot; ZERO FLUFF // MAX EFFORT</span>
     <span>No accounts. No tracking. Your rides stay on this device.</span>
   </footer>
 
@@ -367,8 +399,18 @@
         <div class="muted" style="margin-bottom:0.4rem;">Per interval (planned vs ridden)</div>
         <div class="scroll"><table class="tbl"><thead><tr><th>Interval</th><th>Time</th><th>Planned</th><th>Actual</th><th>Diff</th><th>HR</th></tr></thead><tbody id="sumRows"></tbody></table></div>
       </div>
+      <div id="sumZonesWrap" hidden>
+        <div class="muted" style="margin-bottom:0.4rem;">Time in heart-rate zones</div>
+        <div id="sumZones"></div>
+      </div>
+      <div id="sumFtp" class="panel" hidden>
+        <div id="sumFtpText" style="font-weight:700;"></div>
+        <div class="btn-group"><button id="btnUseFtp" class="primary">Use as my FTP</button></div>
+      </div>
+      <div id="sumMsg" class="hint"></div>
       <div class="btn-group">
         <button id="btnSumExport">Export .FIT</button>
+        <button id="btnSumStrava" title="Downloads the .FIT file and opens Strava's upload page">Send to Strava</button>
         <button id="btnSumAgain" hidden>Ride this workout again</button>
         <button id="btnSumNew">New session</button>
         <button id="btnSumClose" class="primary">Close</button>
@@ -385,8 +427,131 @@
         <table class="tbl"><thead><tr><th>Date</th><th>Workout</th><th>Time</th><th>Avg W</th><th>NP</th><th>kJ</th><th>TSS</th><th>HR</th><th></th></tr></thead><tbody id="histRows"></tbody></table>
       </div>
       <div class="btn-group">
+        <button id="btnTrainerCheck" title="Compare the trainer with your power meter across your rides">Trainer check</button>
         <button id="btnHistClear">Clear all</button>
         <button id="btnHistClose" class="primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div id="settingsOverlay" class="overlay" hidden>
+    <div class="modal">
+      <div class="modal-head"><h2>Settings</h2><button id="btnSetClose" class="primary">Close</button></div>
+
+      <section class="set-group">
+        <h3>Rider</h3>
+        <label class="set-row"><span>FTP (W)</span><input type="number" id="setFtp" class="in" min="50" max="600"></label>
+        <label class="set-row"><span>Weight (<span id="lblWeightUnit">kg</span>)</span><input type="number" id="setWeight" class="in" min="0" max="600" step="0.1" placeholder="optional"></label>
+        <label class="set-row"><span>Maximum heart rate (bpm)</span><input type="number" id="setMaxHR" class="in" min="100" max="230" placeholder="optional"></label>
+        <label class="set-row"><span>Units</span>
+          <select id="setUnits" class="in"><option value="metric">Metric (kg, km)</option><option value="imperial">Imperial (lb, mi)</option></select>
+        </label>
+        <div class="hint">Weight is used for W/kg only. A maximum heart rate switches on heart-rate zones.</div>
+      </section>
+
+      <section class="set-group">
+        <h3>Riding</h3>
+        <label class="set-row"><span>Smooth transitions</span>
+          <select id="setSmooth" class="in"><option value="0">Off</option><option value="3">3 s</option><option value="5">5 s</option></select>
+        </label>
+        <label class="set-row"><span>Auto-pause when I stop pedalling</span><input type="checkbox" id="setAutoPause"></label>
+        <label class="set-row"><span>Max effort resistance (grade %)</span><input type="number" id="setMaxGrade" class="in" min="0" max="10" step="0.5"></label>
+        <div class="hint">Auto-pause stops the timer after 5 seconds without pedalling and resumes when you pedal again. In a MAX step the trainer is not given a target power: it simulates this fixed gradient.</div>
+      </section>
+
+      <section class="set-group">
+        <h3>Cues</h3>
+        <label class="set-row"><span>Sound cues</span><input type="checkbox" id="setSound"></label>
+        <label class="set-row"><span>Spoken cues</span><input type="checkbox" id="setSpeech"></label>
+        <div class="hint">Spoken cues read out the interval and its target when it starts, and what comes next 10 seconds before the end. They use your device's built-in voice.</div>
+      </section>
+
+      <section class="set-group">
+        <h3>Display</h3>
+        <div class="set-row"><span>Theme</span><button id="btnTheme" title="Switch between dark and light">Light mode</button></div>
+      </section>
+
+      <section class="set-group">
+        <h3>Data</h3>
+        <div class="btn-group">
+          <button id="btnBackup">Back up to file</button>
+          <div class="file-input-wrapper"><button>Restore from file</button><input type="file" id="fileRestore" accept=".json,application/json"></div>
+          <button id="btnDeleteAll">Delete all data</button>
+        </div>
+        <div class="hint">Your rides, workouts and settings live only in this browser. A backup file lets you move them to another device or keep them safe.</div>
+        <div id="setMsg" class="hint" style="font-weight:700;"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- About -->
+  <div id="aboutOverlay" class="overlay" hidden>
+    <div class="modal about">
+      <div class="modal-head">
+        <div class="about-head">
+          <div class="brand" aria-label="ZEROAD Lean ERG Studio"><span aria-hidden="true">ZER<sup>OAD</sup></span></div>
+          <div><b>Lean ERG Studio</b> &middot; <span id="aboutVer"></span></div>
+          <div class="muted">Zero fluff // max effort.</div>
+        </div>
+        <button id="btnAboutClose" class="primary">Close</button>
+      </div>
+
+      <section class="set-group legal">
+        <h3 style="color:var(--ink)">Disclaimer</h3>
+        <p>Exercise involves risk. Talk to a doctor before you start or change a training programme, especially if you have a health condition. Stop at once if you feel pain, dizziness or unwell.</p>
+        <p>ZEROAD Lean ERG Studio is not a medical device and gives no medical or coaching advice. Power, heart rate and other values come from your devices and may be inaccurate.</p>
+        <p>The app is provided &ldquo;as is&rdquo;, without warranty of any kind. To the fullest extent permitted by law, the author is not liable for any injury, loss or damage resulting from its use, including damage to your equipment or data. Use it at your own risk.</p>
+      </section>
+
+      <section class="set-group legal">
+        <h3 style="color:var(--ink)">Privacy</h3>
+        <p>No accounts, no tracking, no servers. Your rides, workouts and settings are stored only in this browser on this device. Nothing is sent anywhere. The only thing that leaves your device is a .FIT file that you choose to upload to Strava yourself.</p>
+      </section>
+
+      <section class="set-group legal">
+        <h3 style="color:var(--ink)">Not affiliated</h3>
+        <p>ZEROAD is not affiliated with, endorsed by or sponsored by Strava, Elite, Quarq or any other brand named in the app. All trademarks belong to their owners.</p>
+      </section>
+
+      <section class="set-group legal">
+        <h3 style="color:var(--ink)">Licence and fonts</h3>
+        <p>&copy; 2026 Aljaž Seničar &middot; ZER<sup>O</sup> family. All rights reserved. Free for public use; copying, modifying or redistributing the code needs written permission.</p>
+        <p>Fonts embedded in this app: Montserrat (Copyright 2024 The Montserrat.Git Project Authors) and Roboto Mono (Copyright 2015 The Roboto Mono Project Authors). Both are licensed under the SIL Open Font License, Version 1.1 (<a href="https://openfontlicense.org" target="_blank" rel="noopener">openfontlicense.org</a>).</p>
+      </section>
+
+      <section class="set-group legal">
+        <h3 style="color:var(--ink)">Help</h3>
+        <p><b>Keys:</b> Space start / pause &middot; Up / Down nudge the target (grade in SIM) while riding &middot; Right skip the interval &middot; Ctrl+Z / Ctrl+Y undo / redo.</p>
+        <p><b>Power meter:</b> with a power meter paired, ERG follows the meter. About once a second the app fine-tunes the target it sends the trainer until the meter shows the target power. After a big step (for example 180 to 240 W) it can take up to about 15 seconds to settle. No calibration is stored. If the meter signal drops, the app shows the trainer's reading and holds the last adjustment.</p>
+        <p><b>Trainer check:</b> History &rarr; Trainer check compares the trainer's own reading with your power meter across your rides.</p>
+      </section>
+
+      <section class="set-group legal">
+        <h3 style="color:var(--ink)">What's new</h3>
+        <p><b>1.0.0</b> &middot; Settings window with units, auto-pause, spoken cues and backup / restore. Max effort steps and cadence ranges. Starter workouts and FTP tests. Heart-rate zones. Send to Strava. Trainer check. Restore an interrupted ride. Full-screen mode.</p>
+      </section>
+
+      <section class="set-group legal">
+        <h3 style="color:var(--ink)">Support</h3>
+        <p>Website: <a id="linkSite" target="_blank" rel="noopener"></a><br>Contact: <a id="linkMail"></a><br><a id="linkReport">Report a problem</a></p>
+        <p id="rowCoffee" hidden><a id="linkCoffee" target="_blank" rel="noopener">Buy me a coffee</a> if the app helps your training.</p>
+        <pre class="debug" id="aboutDebug"></pre>
+        <div class="btn-group"><button id="btnCopyDebug">Copy debug info</button></div>
+        <div class="hint">When you report a problem, paste the debug info into your message. It contains no personal data.</div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Trainer check -->
+  <div id="checkOverlay" class="overlay" hidden>
+    <div class="modal wide">
+      <h2>Trainer check</h2>
+      <div class="hint">Compares what the trainer reports with what your power meter reports, in the seconds where both were connected. A gap that grows with power points to the trainer. This is only a report: nothing is corrected.</div>
+      <div id="checkBody"></div>
+      <div class="btn-group">
+        <button id="btnCheckCopy">Copy report</button>
+        <button id="btnCheckClose" class="primary">Close</button>
       </div>
     </div>
   </div>
@@ -445,8 +610,15 @@
     }
 
     // ───────────────────────── Settings ─────────────────────────
-    let settings = Object.assign({ ftp: 200, weight: 0, smooth: 3, sound: true, unit: 'w' }, store.get(SETTINGS_KEY, {}));
+    const APP_VERSION = '1.0.0', APP_DATE = '2026-11-11';
+    const CONTACT_EMAIL = 'zero.fluff.fuel@gmail.com';
+    const SITE_URL = 'https://zeroad-erg-studio.github.io/Lean-ERG-Studio/';
+    const SUPPORT_URL = 'https://buymeacoffee.com/zero.fluff.fuel';   // "Buy me a coffee" link shown in About (leave empty to hide it)
+    let settings = Object.assign({ ftp: 200, weight: 0, smooth: 3, sound: true, unit: 'w', units: 'metric', autoPause: false, speech: false, maxHR: 0, maxGrade: 2 }, store.get(SETTINGS_KEY, {}));
     settings.ftp = clamp(Math.round(Number(settings.ftp)) || 200, 50, 600);
+    settings.units = settings.units === 'imperial' ? 'imperial' : 'metric';
+    settings.maxHR = (settings.maxHR >= 100 && settings.maxHR <= 230) ? Math.round(settings.maxHR) : 0;
+    settings.maxGrade = clamp(Number(settings.maxGrade) || 0, 0, 10);
     function saveSettings() { store.set(SETTINGS_KEY, settings); }
 
     // ───────────────────────── Workout model ─────────────────────────
@@ -464,18 +636,21 @@
     let workout = DEFAULT_WORKOUT();
     let workoutName = 'My workout';
 
+    const CAD_RE = /^\s*(\d{2,3})\s*(?:-|–|to)\s*(\d{2,3})\s*$/;
     function cleanStep(s) {
-      const unit = s.unit === 'pct' ? 'pct' : 'w';
+      const unit = s.unit === 'pct' ? 'pct' : s.unit === 'max' ? 'max' : 'w';   // 'max' = all-out effort, no target power
       const lo = unit === 'pct' ? 10 : 30, hi = unit === 'pct' ? 400 : 2000;
-      const a = clamp(Math.round(Number(s.a)) || lo, lo, hi);
-      const b = (s.b == null || s.b === '' || !isFinite(Number(s.b))) ? null : clamp(Math.round(Number(s.b)), lo, hi);
+      const a = unit === 'max' ? 100 : clamp(Math.round(Number(s.a)) || lo, lo, hi);
+      const b = (unit === 'max' || s.b == null || s.b === '' || !isFinite(Number(s.b))) ? null : clamp(Math.round(Number(s.b)), lo, hi);
       const st = {
         kind: 'step',
-        name: String(s.name || 'Interval').replace(/[\r\n]/g, ' ').slice(0, 60),
+        name: String(s.name || (unit === 'max' ? 'Max effort' : 'Interval')).replace(/[\r\n]/g, ' ').slice(0, 60),
         duration: clamp(Math.round(Number(s.duration)) || 1, 1, 6 * 3600),
         a, unit
       };
       if (b != null && b !== a) st.b = b;
+      const c0 = Math.round(Number(s.cMin)), c1 = Math.round(Number(s.cMax));
+      if (c0 >= 20 && c1 <= 220 && c0 < c1) { st.cMin = c0; st.cMax = c1; }   // optional cadence range
       return st;
     }
     function normalizeWorkout(items) {
@@ -494,7 +669,7 @@
     }
 
     // Power helpers
-    function wattsOf(v, step) { return step.unit === 'pct' ? Math.round(v * settings.ftp / 100) : Math.round(v); }
+    function wattsOf(v, step) { if (step.unit === 'max') return Math.round(settings.ftp * 1.5); return step.unit === 'pct' ? Math.round(v * settings.ftp / 100) : Math.round(v); }
     function stepStartW(st) { return wattsOf(st.a, st); }
     function stepEndW(st) { return wattsOf(st.b != null ? st.b : st.a, st); }
     function stepWattsAt(st, frac) {
@@ -502,17 +677,19 @@
       return wattsOf(st.a + (e - st.a) * clamp(frac, 0, 1), st);
     }
     function pctOf(w) { return settings.ftp ? Math.round(w / settings.ftp * 100) : 0; }
-    function wattsText(st) { const a = stepStartW(st), b = stepEndW(st); return a === b ? `${a} W` : `${a}→${b} W`; }
-    function stepLabel(st) { const a = stepStartW(st), b = stepEndW(st); return a === b ? `${a}W` : `${a}→${b}W`; }
+    function wattsText(st) { if (st.unit === 'max') return 'MAX'; const a = stepStartW(st), b = stepEndW(st); return a === b ? `${a} W` : `${a}→${b} W`; }
+    function stepLabel(st) { if (st.unit === 'max') return 'MAX'; const a = stepStartW(st), b = stepEndW(st); return a === b ? `${a}W` : `${a}→${b}W`; }
     // Coggan power zones
     function zoneOf(w) { const p = w / settings.ftp * 100; return p < 55 ? 1 : p < 75 ? 2 : p < 90 ? 3 : p < 105 ? 4 : p < 120 ? 5 : p < 150 ? 6 : 7; }
     const CANVAS_FONT = '11px "Roboto Mono", "Montserrat", monospace';
     const ZONE_TEXT_LIGHT = ['', '#6b7280', '#2563eb', '#15803d', '#a16207', '#c2410c', '#dc2626', '#9333ea'];
     const ZONE_COLORS = ['', '#9ca3af', '#3b82f6', '#22c55e', '#eab308', '#f97316', '#ef4444', '#a855f7'];
+    function cadText(st) { return st.cMin ? ` · ${st.cMin}–${st.cMax} rpm` : ''; }
     function infoText(st) {
+      if (st.unit === 'max') return 'Max effort · no target power' + cadText(st);
       const a = stepStartW(st), b = stepEndW(st);
       const z = zoneOf((a + b) / 2);
-      return a === b ? `${a} W · ${pctOf(a)}% · Z${z}` : `${a}→${b} W · ${pctOf(a)}→${pctOf(b)}% · Z${z}`;
+      return (a === b ? `${a} W · ${pctOf(a)}% · Z${z}` : `${a}→${b} W · ${pctOf(a)}→${pctOf(b)}% · Z${z}`) + cadText(st);
     }
 
     // Flattened timeline (groups expanded) used for playback and the graph
@@ -582,6 +759,8 @@
     let distance = 0;
     let exported = false, historySaved = false, savedInHistory = false;
     let userDisconnect = false;
+    let autoPaused = false, stillSince = 0, pedalArmed = false, resumeSince = 0, lastSay = '';
+    let testKind = null;       // 'ftp20' | 'ramp' while a starter FTP test is loaded
 
     let selectedPath = null;
     let dragPath = null;
@@ -765,7 +944,7 @@
     }
     function setPower(path, field, raw) {
       const st = getItem(path);
-      if (!st || st.kind !== 'step') return;
+      if (!st || st.kind !== 'step' || st.unit === 'max') return;
       if (!pathEditable(path)) { lockMsg(); refreshEditorValues(); return; }
       const lo = st.unit === 'pct' ? 10 : 30, hi = st.unit === 'pct' ? 400 : 2000;
       let a = st.a, b = st.b != null ? st.b : null;
@@ -788,11 +967,36 @@
       if (!st || st.kind !== 'step' || st.unit === unit) return;
       if (!pathEditable(path)) { lockMsg(); refreshEditorValues(); return; }
       pushUndo();
-      const conv = (v) => unit === 'pct' ? Math.round(wattsOf(v, st) / settings.ftp * 100) : wattsOf(v, st);
-      const na = conv(st.a), nb = st.b != null ? conv(st.b) : null;
-      st.unit = unit; st.a = na;
-      if (nb != null && nb !== na) st.b = nb; else delete st.b;
+      if (unit === 'max') {
+        st.unit = 'max'; st.a = 100; delete st.b;
+        if (st.name === 'Interval') st.name = 'Max effort';
+      } else if (st.unit === 'max') {
+        st.unit = unit; st.a = unit === 'pct' ? 100 : settings.ftp; delete st.b;
+        if (st.name === 'Max effort') st.name = 'Interval';
+      } else {
+        const conv = (v) => unit === 'pct' ? Math.round(wattsOf(v, st) / settings.ftp * 100) : wattsOf(v, st);
+        const na = conv(st.a), nb = st.b != null ? conv(st.b) : null;
+        st.unit = unit; st.a = na;
+        if (nb != null && nb !== na) st.b = nb; else delete st.b;
+      }
       modelChanged({ structure: false });
+      applyLocks();                              // MAX steps have no power boxes
+    }
+    function setCadence(path, raw) {
+      const st = getItem(path);
+      if (!st || st.kind !== 'step') return;
+      if (!pathEditable(path)) { lockMsg(); refreshEditorValues(); return; }
+      raw = String(raw == null ? '' : raw).trim();
+      if (raw === '') {
+        if (st.cMin == null) return;
+        pushUndo(); delete st.cMin; delete st.cMax; modelChanged({ structure: false });
+        return;
+      }
+      const m = raw.match(CAD_RE);
+      const c0 = m ? Number(m[1]) : NaN, c1 = m ? Number(m[2]) : NaN;
+      if (!(c0 >= 20 && c1 <= 220 && c0 < c1)) { notice('Enter a cadence range like 90-100, or leave it empty.'); refreshEditorValues(); return; }
+      if (st.cMin === c0 && st.cMax === c1) return;
+      pushUndo(); st.cMin = c0; st.cMax = c1; modelChanged({ structure: false });
     }
     function setGroupCount(i, v) {
       const g = workout[i];
@@ -813,6 +1017,7 @@
       pushUndo();
       workout = w;
       workoutName = String(name || 'My workout').slice(0, 60);
+      testKind = null;
       $('workoutName').value = workoutName;
       selectedPath = null;
       modelChanged({ structure: true });
@@ -904,9 +1109,11 @@
       b.addEventListener('change', () => setPower(pth(), 'b', b.value));
       const unit = document.createElement('select');
       unit.className = 'in in-unit';
-      [['w', 'W'], ['pct', '%FTP']].forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; unit.appendChild(o); });
+      [['w', 'W'], ['pct', '%FTP'], ['max', 'MAX']].forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; unit.appendChild(o); });
       unit.addEventListener('change', () => setUnit(pth(), unit.value));
-      r2.appendChild(dur); r2.appendChild(a); r2.appendChild(arrow); r2.appendChild(b); r2.appendChild(unit);
+      const cad = mkInput('in-cad', 'text', { 'aria-label': 'Cadence range (optional)', placeholder: 'rpm 90-100', title: 'Optional cadence range, for example 90-100' });
+      cad.addEventListener('change', () => setCadence(pth(), cad.value));
+      r2.appendChild(dur); r2.appendChild(a); r2.appendChild(arrow); r2.appendChild(b); r2.appendChild(unit); r2.appendChild(cad);
       root.appendChild(r2);
 
       const info = document.createElement('div');
@@ -993,8 +1200,9 @@
         const set = (sel, val) => { const i = el.querySelector(sel); if (i && document.activeElement !== i) i.value = val; };
         set('.in-name', st.name);
         set('.in-dur', fmt(st.duration));
-        set('.in-a', st.a);
-        set('.in-b', st.b != null ? st.b : '');
+        set('.in-a', st.unit === 'max' ? '' : st.a);
+        set('.in-b', (st.unit === 'max' || st.b == null) ? '' : st.b);
+        set('.in-cad', st.cMin ? st.cMin + '-' + st.cMax : '');
         set('.in-unit', st.unit);
         const info = el.querySelector('.ed-info');
         if (info) info.textContent = infoText(st);
@@ -1015,6 +1223,8 @@
         const ok = pathEditable(pathOfEl(el));
         el.classList.toggle('locked', !ok);
         el.querySelectorAll('input,select,button').forEach(c => { c.disabled = !ok; });
+        const stx = getItem(pathOfEl(el));
+        if (stx && stx.unit === 'max') el.querySelectorAll('.in-a,.in-b').forEach(c => { c.disabled = true; });
       });
       document.querySelectorAll('.group-card').forEach((el) => {
         const ok = pathEditable([Number(el.dataset.path)]);
@@ -1146,6 +1356,12 @@
 
     function updateTargetDisplay() {
       if (mode === 'erg') {
+        if (maxNow()) {
+          $('lblTarget').textContent = 'Target (W):';
+          $('valTarget').textContent = 'MAX';
+          $('subTarget').textContent = 'All out · fixed low resistance';
+          return;
+        }
         const w = effectiveWatts();
         $('lblTarget').textContent = 'Target (W):';
         $('valTarget').textContent = w;
@@ -1162,6 +1378,16 @@
       updateTargetDisplay();
       if (!controlChar || !running) return;
       if (mode === 'erg') {
+        if (maxNow()) {                            // max effort step: no target power, fixed low resistance
+          softStart = true; lastDesired = null; smoothFrom = null;
+          trimHoldUntil = performance.now() + 4000;
+          const gm = Math.round(settings.maxGrade * 100);
+          const keyM = 'x' + gm;
+          if (!force && keyM === lastSentKey) return;
+          lastSentKey = keyM; lastSentW = null;
+          cpSend([0x11, 0x00, 0x00, gm & 0xFF, (gm >> 8) & 0xFF, 40, 51]);
+          return;
+        }
         const d = effectiveWatts();
         const now = performance.now();
         if (softStart) {
@@ -1192,6 +1418,7 @@
     }
 
     function nudge(dir) {
+      if (mode === 'erg' && maxNow()) { notice('A max effort step has no target power to nudge.'); return; }
       if (mode === 'erg') wattOffset += dir * 5;
       else grade = clamp(grade + dir, -10, 20);
       applyTarget();
@@ -1235,6 +1462,7 @@
       if (f & 0x0200) { if (has(1)) trainerHR = v.getUint8(o); o += 1; }                        // heart rate
 
       updateDisplay();
+      if (autoPaused && !running) autoResumeCheck();
     }
 
     // Power sources: the trainer's own reading and, when paired, a Bluetooth power meter (which then takes priority)
@@ -1260,7 +1488,7 @@
 
     // ERG driven by the power meter: about once a second, move the trainer's target a little until the meter shows the wanted power
     function updateTrim() {
-      if (mode !== 'erg' || !running || !pmUsable()) return;
+      if (mode !== 'erg' || !running || !pmUsable() || maxNow()) return;
       const now = performance.now();
       if (now < trimHoldUntil || now - lastTrimTs < 1000) return;   // wait after step changes / resume
       lastTrimTs = now;
@@ -1285,8 +1513,20 @@
       if (settings.weight > 0 && p > 0) sub += (sub ? ' · ' : '') + `${(p / settings.weight).toFixed(1)} W/kg`;
       $('subPower').textContent = sub;
       $('valCadence').textContent = liveCadence || 0;
+      const cs = (running && mode === 'erg') ? stepAt(posSec()) : null;
+      const cstep = cs && cs.f.step.cMin ? cs.f.step : null;
+      const ccell = $('valCadence').closest('.cell');
+      let csub = '';
+      if (cstep) {
+        const c = liveCadence;
+        const off = c > 0 && (c < cstep.cMin - 2 || c > cstep.cMax + 2);
+        csub = `Target ${cstep.cMin}–${cstep.cMax} rpm` + (off ? (c < cstep.cMin ? ' · too low' : ' · too high') : '');
+        ccell.classList.toggle('off', off);
+      } else ccell.classList.remove('off');
+      $('subCadence').textContent = csub;
       const hr = strapHR || trainerHR;
       $('valHR').textContent = hr || '--';
+      $('subHR').textContent = (settings.maxHR && hr) ? `Z${hrZoneOf(hr, settings.maxHR)} · ${Math.round(hr / settings.maxHR * 100)}% of max` : '';
     }
 
     async function setupTrainer(server) {
@@ -1516,7 +1756,7 @@
       if (mode === 'erg') k = curStepIdx >= 0 ? curStepIdx : (stepAt(posSec()) || { idx: -1 }).idx;
       // p = the power source in use (meter if paired and live); t = the trainer's own reading, kept for comparison when a meter is used
       logs.push({ p: currentPower(), t: pmUsable() ? trainerPower : null, c: liveCadence, h: strapHR || trainerHR, s: liveSpeed, d: distance, k });
-      if (logs.length % 30 === 0) saveDraft();
+      if (logs.length % 15 === 0) saveDraft();
     }
 
     function refreshReadout() {
@@ -1581,6 +1821,7 @@
 
     function tick() {
       if (!running) return;
+      if (settings.autoPause && autoPauseCheck()) return;
       const t = timerSec();
       while (logs.length < Math.floor(t)) logSample();
 
@@ -1593,8 +1834,10 @@
           lastCue = '';
           updateCurrentHighlight();
           if (!first) { beep(1320, 0.4); flashScreen(); }   // new interval
+          sayStep(s.f);
         } else {
           const left = Math.ceil(s.remaining - 0.001);
+          if (left === 10 && s.f.dur > 20 && lastSay !== 'n' + s.idx) { lastSay = 'n' + s.idx; sayNext(s.idx); }
           if (left >= 1 && left <= 3) {
             const key = s.idx + ':' + left;
             if (key !== lastCue) { lastCue = key; beep(880, 0.12); }   // 3-2-1 countdown
@@ -1619,12 +1862,15 @@
     }
     function stopTicking() { clearInterval(tickHandle); tickHandle = null; }
 
-    function togglePlayPause() {
+    function togglePlayPause(auto) {
       if (finished) return;
       if (running) {
         fold();
         running = false;
+        autoPaused = auto === true;              // true when the app paused itself because pedalling stopped
+        resumeSince = 0;
         stopTicking();
+        saveDraft();
         cpSend([0x08, 0x02]);                    // Stop/Pause -> pause: releases the resistance
         releaseWake();
         $('btnPlayPause').textContent = 'RESUME';
@@ -1638,6 +1884,7 @@
       running = true;
       t0 = performance.now();
       if (!sessionStart) sessionStart = new Date();
+      autoPaused = false; pedalArmed = false; stillSince = 0; resumeSince = 0;
       acquireWake();
       startTicking();
       cpSend([0x07]);                            // Start / Resume
@@ -1663,7 +1910,8 @@
       while (logs.length < Math.floor(timerBase)) logSample();
       cpSend([0x08, 0x01]);                      // Stop: trainer resistance released
       releaseWake();
-      saveDraft();
+      autoPaused = false;
+      say('Workout complete');
       $('btnPlayPause').textContent = 'DONE';
       $('btnPlayPause').disabled = true;
       $('btnSkip').disabled = true;
@@ -1675,6 +1923,7 @@
       drawProfile();
       applyLocks();
       if (logs.length && !historySaved) { historySaved = true; savedInHistory = addHistory(computeStats(logs)); }
+      if (savedInHistory) store.del(DRAFT_KEY); else saveDraft();
       showSummary();
     }
 
@@ -1701,10 +1950,18 @@
     $('btnAddStep').onclick = () => {
       const dur = parseDur($('inputDuration').value);
       if (dur == null) { notice('Enter the length as m:ss, for example 5:00.'); return; }
-      const a = parseInt($('inputTarget').value);
-      if (isNaN(a) || a <= 0) { notice('Enter the power for the interval.'); return; }
+      const isMax = $('inputUnit').value === 'max';
+      const a = isMax ? 100 : parseInt($('inputTarget').value);
+      if (!isMax && (isNaN(a) || a <= 0)) { notice('Enter the power for the interval.'); return; }
       const bRaw = parseInt($('inputTargetEnd').value);
-      const step = cleanStep({ name: ($('inputName').value || 'Interval'), duration: dur, a, b: isNaN(bRaw) ? null : bRaw, unit: $('inputUnit').value });
+      let cMin, cMax;
+      const cr = $('inputCad').value.trim();
+      if (cr) {
+        const cm = cr.match(CAD_RE);
+        if (!cm) { notice('Enter a cadence range like 90-100, or leave it empty.'); return; }
+        cMin = Number(cm[1]); cMax = Number(cm[2]);
+      }
+      const step = cleanStep({ name: ($('inputName').value || (isMax ? 'Max effort' : 'Interval')), duration: dur, a, b: isNaN(bRaw) ? null : bRaw, unit: $('inputUnit').value, cMin, cMax });
       pushUndo();
       workout.push(step);
       selectedPath = [workout.length - 1];
@@ -1724,7 +1981,7 @@
     };
     $('inputUnit').onchange = () => {
       const to = $('inputUnit').value, from = settings.unit;
-      if (to === from) return;
+      if (to === 'max' || to === from) return;
       [$('inputTarget'), $('inputTargetEnd')].forEach(inp => {
         const v = parseFloat(inp.value);
         if (isNaN(v)) return;
@@ -1740,9 +1997,9 @@
       scheduleSave();
     });
 
-    function csvRow(g, rep, s) { return `${g},${rep},${s.duration},${s.a},${s.b != null ? s.b : s.a},${s.unit},${s.name.replace(/[\r\n]/g, ' ')}\n`; }
+    function csvRow(g, rep, s) { const mx = s.unit === 'max'; return `${g},${rep},${s.duration},${mx ? 0 : s.a},${mx ? 0 : (s.b != null ? s.b : s.a)},${s.unit},${s.cMin || ''},${s.cMax || ''},${s.name.replace(/[\r\n]/g, ' ')}\n`; }
     function workoutToCsv() {
-      let csv = 'Group,Repeat,DurationSec,Start,End,Unit,Name\n';
+      let csv = 'Group,Repeat,DurationSec,Start,End,Unit,CadMin,CadMax,Name\n';
       workout.forEach((it, i) => {
         if (it.kind === 'group') it.steps.forEach(s => { csv += csvRow(String(i + 1), it.count, s); });
         else csv += csvRow('', 1, it);
@@ -1757,6 +2014,7 @@
       const hasHeader = head.includes('duration');
       const rows = hasHeader ? lines.slice(1) : lines;
       const newFmt = head.startsWith('group');
+      const hasCad = head.includes('cadmin');
       const items = [];
       let group = null, groupId = null;
       rows.forEach(line => {
@@ -1765,10 +2023,12 @@
           if (p.length < 6) return;
           const gid = p[0].trim(), rep = parseInt(p[1]) || 1;
           const duration = parseInt(p[2]), a = parseFloat(p[3]), bRaw = p[4].trim();
-          const unit = p[5].trim().toLowerCase() === 'pct' ? 'pct' : 'w';
-          const name = p.slice(6).join(',').trim() || 'Interval';
+          const u5 = p[5].trim().toLowerCase();
+          const unit = u5 === 'pct' ? 'pct' : u5 === 'max' ? 'max' : 'w';
+          const name = p.slice(hasCad ? 8 : 6).join(',').trim() || (unit === 'max' ? 'Max effort' : 'Interval');
           if (isNaN(duration) || isNaN(a) || duration <= 0) return;
           const st = { kind: 'step', name, duration, a, b: bRaw === '' ? null : parseFloat(bRaw), unit };
+          if (hasCad) { st.cMin = parseInt(p[6]); st.cMax = parseInt(p[7]); }
           if (gid) {
             if (group && groupId === gid) group.steps.push(st);
             else { group = { kind: 'group', count: rep, steps: [st] }; groupId = gid; items.push(group); }
@@ -1809,7 +2069,7 @@
         } else if (tag === 'freeride') {
           if (dur > 0) items.push({ kind: 'step', name: 'Free ride', duration: dur, a: 50, unit: 'pct' });
         } else if (tag === 'maxeffort') {
-          if (dur > 0) items.push({ kind: 'step', name: 'Max effort', duration: dur, a: 150, unit: 'pct' });
+          if (dur > 0) items.push({ kind: 'step', name: 'Max effort', duration: dur, a: 100, unit: 'max' });
         }
       }
       return items.length ? { name: nameM ? nameM[1].trim() : null, items } : null;
@@ -2034,7 +2294,7 @@
         if (!hit) { selectPath(null); return; }
         const f = flat[hit.it.idx];
         selectPath(f.path.slice());
-        if (e.pointerType === 'touch' || hit.type === 'body' || !pathEditable(f.path)) return;
+        if (e.pointerType === 'touch' || hit.type === 'body' || !pathEditable(f.path) || (hit.type === 'pow' && f.step.unit === 'max')) return;
         drag = {
           type: hit.type, path: f.path.slice(), x0: x, y0: y,
           dur0: f.step.duration, a0: f.step.a, b0: f.step.b != null ? f.step.b : null,
@@ -2077,26 +2337,29 @@
     })();
 
     // ───────────────────────── Summary, history, draft recovery ─────────────────────────
+    // Snapshot of the ride in progress, so it can be restored after a crash, a closed tab or a dead battery
     function saveDraft() {
       try {
         if (!sessionStart || !logs.length) return;
         store.set(DRAFT_KEY, {
-          start: sessionStart.toISOString(),
-          logs: logs.map(l => [l.p, l.c, l.h, l.s, l.d, l.k, l.t])
+          v: 2, start: sessionStart.toISOString(), name: workoutName, items: workout,
+          timer: timerSec(), pos: posSec(), mode, offset: wattOffset, distance, tag: testKind, done: finished,
+          logs: packLogs(logs)
         });
       } catch (e) { /* storage full or blocked */ }
     }
-    function exportFit(logsToUse, startDate) {
+    function exportFit(logsToUse, startDate, name) {
       const fit = buildFit(logsToUse, startDate);
       const stamp = startDate.toISOString().slice(0, 16).replace(/[:T]/g, '-');
-      download(new Blob([fit], { type: 'application/octet-stream' }), `zeroad_${stamp}.fit`);
+      const slug = String(name || '').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 40);
+      download(new Blob([fit], { type: 'application/octet-stream' }), `zeroad_${slug ? slug + '_' : ''}${stamp}.fit`);
     }
     $('btnExportFIT').onclick = () => {
       if (running) { const t = timerSec(); while (logs.length < Math.floor(t)) logSample(); }
       if (logs.length === 0) { alert('No session data logged yet. Start the workout first.'); return; }
-      exportFit(logs, sessionStart);
+      exportFit(logs, sessionStart, workoutName);
       exported = true;
-      store.del(DRAFT_KEY);
+      if (!inProgress()) store.del(DRAFT_KEY);
     };
 
     // <STATS>
@@ -2128,8 +2391,8 @@
       L.forEach(l => {
         const k = l.k == null ? -1 : l.k;
         let a = acc.get(k);
-        if (!a) { a = { n: 0, p: 0, h: 0, hn: 0 }; acc.set(k, a); }
-        a.n++; a.p += l.p || 0;
+        if (!a) { a = { n: 0, p: 0, h: 0, hn: 0, pk: 0 }; acc.set(k, a); }
+        a.n++; a.p += l.p || 0; a.pk = Math.max(a.pk, l.p || 0);
         if (l.h > 0) { a.h += l.h; a.hn++; }
       });
       const keys = [...acc.keys()].sort((x, y) => (x < 0 ? Infinity : x) - (y < 0 ? Infinity : y));
@@ -2140,7 +2403,7 @@
         if (k < 0) { rows.push({ name: 'Free ride (SIM)', secs: a.n, planned: null, actual, hr }); return; }
         const pl = plan[k];
         if (!pl) return;
-        rows.push({ name: pl.name, secs: a.n, planned: pl.planned, actual, hr });
+        rows.push({ name: pl.name + (pl.max ? ` · peak ${Math.round(a.pk)} W` : ''), secs: a.n, planned: pl.planned, actual, hr });
       });
       return rows;
     }
@@ -2215,11 +2478,40 @@
     let summaryFromHistory = false;   // Close returns to the history list
 
     function makePlan() {
-      return flat.map(f => ({ name: stepName(f), planned: Math.round((stepStartW(f.step) + stepEndW(f.step)) / 2) }));
+      return flat.map(f => f.step.unit === 'max' ? { name: stepName(f), planned: null, max: true } : { name: stepName(f), planned: Math.round((stepStartW(f.step) + stepEndW(f.step)) / 2) });
     }
     function packLogs(L) { return L.map(l => [l.p, l.c, l.h, Math.round(l.s * 100) / 100, Math.round(l.d), l.k, l.t == null ? null : l.t]); }
     function unpackLogs(A) { return A.map(a => ({ p: a[0], c: a[1], h: a[2], s: a[3], d: a[4], k: a[5], t: a[6] == null ? null : a[6] })); }
     function loadHistory() { return store.get(HISTORY_KEY, []).map(e => Object.assign({ id: Date.parse(e.date) }, e)); }
+
+    const HR_ZONE_LABELS = ['Z1 · under 60% of max', 'Z2 · 60–70%', 'Z3 · 70–80%', 'Z4 · 80–90%', 'Z5 · over 90%'];
+    const hrZoneOf = (h, max) => { const p = h / max; return p < 0.6 ? 1 : p < 0.7 ? 2 : p < 0.8 ? 3 : p < 0.9 ? 4 : 5; };
+    function hrZoneTimes(L, max) {
+      const z = [0, 0, 0, 0, 0];
+      let n = 0;
+      L.forEach(l => { if (l.h > 0) { z[hrZoneOf(l.h, max) - 1]++; n++; } });
+      return { z, n };
+    }
+    function sumMsg(t) { $('sumMsg').textContent = t || ''; }
+
+    // FTP tests: 20-minute test = 95% of the 20-minute average, ramp test = 75% of the best minute
+    let curEst = null;
+    function ftpEstimate(L, plan, test) {
+      if (test === 'ftp20') {
+        const ps = L.filter(l => l.k >= 0 && plan[l.k] && plan[l.k].name === '20 min test').map(l => l.p || 0);
+        if (ps.length < 1080) return { ok: false, text: 'FTP test: the 20-minute effort was cut short, so there is no estimate.' };
+        const avg = ps.reduce((a, b) => a + b, 0) / ps.length;
+        const ftp = Math.round(avg * 0.95);
+        return { ok: true, ftp, text: `FTP test: 20-minute average ${Math.round(avg)} W × 0.95 = estimated FTP ${ftp} W.` };
+      }
+      if (test === 'ramp') {
+        const st = computeStats(L, settings.ftp);
+        if (!st || st.b1 == null || st.b1 < 80) return { ok: false, text: 'FTP test: the ramp was too short for an estimate.' };
+        const ftp = Math.round(st.b1 * 0.75);
+        return { ok: true, ftp, text: `FTP test: best minute ${st.b1} W × 0.75 = estimated FTP ${ftp} W.` };
+      }
+      return null;
+    }
 
     function showSummary(view) {
       viewing = view || null;
@@ -2230,11 +2522,13 @@
       const plan = view ? view.plan : makePlan();
       const st = computeStats(L, ftp);
       if (!st) return;
+      const imp = settings.units === 'imperial';
       const grid = $('sumGrid');
       grid.textContent = '';
       const dash = (v, unit) => v == null ? '--' : v + unit;
       const wkg = (w) => (weight > 0 && w != null) ? (w / weight).toFixed(2) + ' W/kg' : null;
-      const speed = st.km > 0 ? (st.km / (st.n / 3600)).toFixed(1) + ' km/h' : '--';
+      const dist = imp ? st.km * 0.621371 : st.km;
+      const speed = st.km > 0 ? (dist / (st.n / 3600)).toFixed(1) + (imp ? ' mph' : ' km/h') : '--';
       const cards = [
         ['DURATION', fmt(st.n)],
         ['AVG POWER', st.avgP + ' W'],
@@ -2248,7 +2542,7 @@
         ['AVG CADENCE', dash(st.avgC, ' rpm')],
         ['AVG HEART RATE', dash(st.avgH, ' bpm')],
         ['MAX HEART RATE', dash(st.maxH, ' bpm')],
-        ['DISTANCE', st.km > 0 ? st.km.toFixed(1) + ' km' : '--'],
+        ['DISTANCE', st.km > 0 ? dist.toFixed(1) + (imp ? ' mi' : ' km') : '--'],
         ['AVG SPEED', speed]
       ];
       if (st.avgT != null) cards.push(['TRAINER AVG POWER', st.avgT + ' W']);   // the trainer's own reading while the meter was in use
@@ -2275,10 +2569,36 @@
         body.appendChild(tr);
       });
 
+      // heart-rate zones (needs a maximum heart rate in Settings)
+      const maxHR = view ? (view.maxHR || settings.maxHR) : settings.maxHR;
+      const zt = maxHR ? hrZoneTimes(L, maxHR) : null;
+      const zWrap = $('sumZonesWrap'), zBox = $('sumZones');
+      zBox.textContent = '';
+      zWrap.hidden = !(zt && zt.n >= 30);
+      if (!zWrap.hidden) {
+        zt.z.forEach((sec, i) => {
+          const row = document.createElement('div');
+          row.className = 'zrow';
+          const lab = document.createElement('span'); lab.textContent = HR_ZONE_LABELS[i];
+          const bar = document.createElement('span'); bar.className = 'zbar'; bar.style.width = Math.max(sec ? 2 : 0, Math.round(sec / zt.n * 100)) + '%';
+          const val = document.createElement('span'); val.className = 'muted'; val.textContent = `${fmt(sec)} · ${Math.round(sec / zt.n * 100)}%`;
+          row.appendChild(lab); row.appendChild(bar); row.appendChild(val);
+          zBox.appendChild(row);
+        });
+      }
+
+      // FTP estimate after a test workout
+      const test = view ? view.test : testKind;
+      const est = test ? ftpEstimate(L, plan, test) : null;
+      curEst = est;
+      $('sumFtp').hidden = !est;
+      if (est) { $('sumFtpText').textContent = est.text; $('btnUseFtp').hidden = !est.ok; if (est.ok) $('btnUseFtp').textContent = `Use ${est.ftp} W as my FTP`; }
+
       const start = view ? view.start : sessionStart;
       $('sumDate').textContent = start ? `${view ? view.name : workoutName} · ${start.toLocaleString()}` : '';
       $('btnSumNew').hidden = !!view;
       $('btnSumAgain').hidden = !view;
+      sumMsg('');
       summaryLogs = L;
       $('summaryOverlay').hidden = false;
       drawSummaryChart(L);                        // after the overlay is visible so it has a size
@@ -2308,7 +2628,7 @@
       const id = sessionStart.getTime();
       const hist = loadHistory();
       const entry = { id, date: sessionStart.toISOString(), name: workoutName, dur: st.n, avgP: st.avgP, np: st.np, kj: st.kj, avgH: st.avgH, tss: st.tss, hasData: false };
-      const detail = { ftp: settings.ftp, weight: settings.weight, plan: makePlan(), items: JSON.parse(JSON.stringify(workout)), logs: packLogs(logs) };
+      const detail = { ftp: settings.ftp, weight: settings.weight, plan: makePlan(), items: JSON.parse(JSON.stringify(workout)), logs: packLogs(logs), test: testKind, maxHR: settings.maxHR };
       entry.hasData = saveDetail(id, detail, hist);
       hist.unshift(entry);
       hist.slice(100).forEach(e => store.del(sessKey(e.id)));
@@ -2319,7 +2639,7 @@
       const e = loadHistory().find(x => x.id === id);
       const d = store.get(sessKey(id), null);
       if (!e || !d || !Array.isArray(d.logs) || !d.logs.length) return null;
-      return { id, name: e.name || 'Untitled', start: new Date(e.date), ftp: d.ftp || settings.ftp, weight: d.weight || 0, plan: d.plan || [], items: d.items || [], logs: unpackLogs(d.logs) };
+      return { id, name: e.name || 'Untitled', start: new Date(e.date), ftp: d.ftp || settings.ftp, weight: d.weight || 0, plan: d.plan || [], items: d.items || [], logs: unpackLogs(d.logs), test: d.test || null, maxHR: d.maxHR || 0 };
     }
     function renameSession(id, value) {
       const name = String(value || '').replace(/[\r\n]/g, ' ').trim().slice(0, 60) || 'Untitled';
@@ -2340,7 +2660,7 @@
     function exportSession(id) {
       const v = getSession(id);
       if (!v) { notice('The details of that session are no longer stored on this device.'); return; }
-      exportFit(v.logs, v.start);
+      exportFit(v.logs, v.start, v.name);
     }
     function rideAgain(items, name) {
       if (inProgress()) { notice('Finish the current session first.'); return; }
@@ -2405,7 +2725,7 @@
       if (logs.length && !exported && !savedInHistory && !confirm('Start a new session? Data that has not been exported will be lost.')) return;
       logs = []; distance = 0; sessionStart = null; finished = false; exported = false; historySaved = false; savedInHistory = false;
       timerBase = 0; posBase = 0; curStepIdx = -1; wattOffset = 0; lastSentKey = null; lastDesired = null; smoothFrom = null;
-      trim = 0; lastSentW = null;
+      trim = 0; lastSentW = null; autoPaused = false;
       baseTarget = flat[0] ? stepStartW(flat[0].step) : 100;
       store.del(DRAFT_KEY);
       $('summaryOverlay').hidden = true;
@@ -2425,7 +2745,7 @@
     $('btnSummary').onclick = () => showSummary();
     $('btnHistory').onclick = showHistory;
     $('btnSumClose').onclick = closeSummary;
-    $('btnSumExport').onclick = () => { if (viewing) exportFit(viewing.logs, viewing.start); else $('btnExportFIT').onclick(); };
+    $('btnSumExport').onclick = () => { if (viewing) exportFit(viewing.logs, viewing.start, viewing.name); else $('btnExportFIT').onclick(); };
     $('btnSumAgain').onclick = () => { if (viewing) rideAgain(viewing.items, viewing.name); };
     $('btnSumNew').onclick = resetSession;
     $('btnHistClose').onclick = () => { $('historyOverlay').hidden = true; };
@@ -2475,6 +2795,12 @@
       refreshReadout();
       drawProfile();
     }
+    const weightOut = (kg) => settings.units === 'imperial' ? Math.round(kg / 0.45359237 * 10) / 10 : kg;
+    const weightIn = (v) => settings.units === 'imperial' ? v * 0.45359237 : v;
+    function applyUnitsUI() {
+      $('lblWeightUnit').textContent = settings.units === 'imperial' ? 'lb' : 'kg';
+      $('setWeight').value = settings.weight ? weightOut(settings.weight) : '';
+    }
     $('setFtp').addEventListener('change', () => {
       const v = parseInt($('setFtp').value);
       settings.ftp = isNaN(v) ? settings.ftp : clamp(v, 50, 600);
@@ -2483,27 +2809,401 @@
     });
     $('setWeight').addEventListener('change', () => {
       const v = parseFloat($('setWeight').value);
-      settings.weight = isNaN(v) ? 0 : clamp(v, 0, 250);
-      $('setWeight').value = settings.weight || '';
+      settings.weight = isNaN(v) ? 0 : Math.round(clamp(weightIn(v), 0, 250) * 100) / 100;
+      applyUnitsUI();
       settingsChanged();
     });
+    $('setMaxHR').addEventListener('change', () => {
+      const v = parseInt($('setMaxHR').value);
+      settings.maxHR = (v >= 100 && v <= 230) ? v : 0;
+      $('setMaxHR').value = settings.maxHR || '';
+      settingsChanged();
+    });
+    $('setUnits').addEventListener('change', () => {
+      settings.units = $('setUnits').value === 'imperial' ? 'imperial' : 'metric';
+      applyUnitsUI();
+      saveSettings();
+    });
     $('setSmooth').addEventListener('change', () => { settings.smooth = parseInt($('setSmooth').value) || 0; saveSettings(); });
+    $('setAutoPause').addEventListener('change', () => { settings.autoPause = $('setAutoPause').checked; stillSince = 0; pedalArmed = running && pedalling(); saveSettings(); });
+    $('setMaxGrade').addEventListener('change', () => {
+      const v = parseFloat($('setMaxGrade').value);
+      settings.maxGrade = isNaN(v) ? 2 : clamp(Math.round(v * 2) / 2, 0, 10);
+      $('setMaxGrade').value = settings.maxGrade;
+      saveSettings();
+      if (running) applyTarget(true);
+    });
     $('setSound').addEventListener('change', () => {
       settings.sound = $('setSound').checked;
       saveSettings();
       if (settings.sound) { initAudio(); beep(880, 0.12); }
     });
+    $('setSpeech').addEventListener('change', () => {
+      settings.speech = $('setSpeech').checked;
+      saveSettings();
+      if (settings.speech) say('Spoken cues on');
+    });
+
+    // ───────────────────────── Spoken cues ─────────────────────────
+    function say(text) {
+      if (!settings.speech || !('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+      } catch (e) { /* no speech */ }
+    }
+    function spokenTarget(st) {
+      if (st.unit === 'max') return 'all out';
+      const a = stepStartW(st), b = stepEndW(st);
+      let t = a === b ? `${a} watts` : `${a} to ${b} watts`;
+      if (st.cMin) t += `, cadence ${st.cMin} to ${st.cMax}`;
+      return t;
+    }
+    function sayStep(f) { say(f.step.unit === 'max' ? `${f.step.name}. Go!` : `${f.step.name}. ${spokenTarget(f.step)}`); }
+    function sayNext(idx) {
+      const nf = flat[idx + 1];
+      if (nf) say(`Next: ${nf.step.name}, ${spokenTarget(nf.step)}`);
+    }
+
+    // ───────────────────────── Auto-pause ─────────────────────────
+    function pedalling() { return cadenceSeen ? liveCadence > 0 : avgPower() > 10; }
+    // Called while riding: after 5 s without pedalling the session pauses itself
+    function autoPauseCheck() {
+      const now = performance.now();
+      if (pedalling()) { pedalArmed = true; stillSince = 0; return false; }
+      if (!pedalArmed) return false;                     // not pedalled yet since start / resume
+      if (!stillSince) { stillSince = now; return false; }
+      if (now - stillSince < 5000) return false;
+      togglePlayPause(true);
+      notice('Auto-paused. Start pedalling to resume.', 8000);
+      return true;
+    }
+    // Called while auto-paused: steady pedalling for 1.5 s resumes
+    function autoResumeCheck() {
+      const strong = cadenceSeen ? liveCadence >= 25 : trainerPower >= 40;
+      const now = performance.now();
+      if (!strong) { resumeSince = 0; return; }
+      if (!resumeSince) { resumeSince = now; return; }
+      if (now - resumeSince >= 1500) { resumeSince = 0; togglePlayPause(); }
+    }
+
+    // ───────────────────────── Max effort helper ─────────────────────────
+    function maxNow() {
+      if (mode !== 'erg' || !flat.length) return false;
+      const s = stepAt(sessionStart ? posSec() : 0);
+      return !!(s && s.f.step.unit === 'max');
+    }
+
+    // ───────────────────────── Restore an interrupted ride ─────────────────────────
+    function restoreRide(d, L) {
+      if (sessionStart) { notice('Finish or reset the current session first.'); return false; }
+      const w = normalizeWorkout(d.items);
+      if (!w) return false;
+      workout = w;
+      workoutName = String(d.name || 'My workout').slice(0, 60);
+      $('workoutName').value = workoutName;
+      logs = L;
+      distance = Number(d.distance) || (L.length ? L[L.length - 1].d : 0);
+      sessionStart = new Date(d.start);
+      timerBase = Number(d.timer) || L.length;
+      posBase = Number(d.pos) || 0;
+      wattOffset = Number(d.offset) || 0;
+      testKind = d.tag || null;
+      finished = false; running = false; exported = false; historySaved = false; savedInHistory = false;
+      curStepIdx = -1; trim = 0;
+      modelChanged({ structure: true });
+      if (d.mode === 'sim') setMode('sim');
+      $('btnPlayPause').textContent = 'RESUME';
+      $('btnPlayPause').disabled = !(trainerDevice && trainerDevice.gatt && trainerDevice.gatt.connected);
+      $('btnSkip').disabled = false; $('btnFinish').disabled = false; $('btnExportFIT').disabled = false; $('btnSummary').disabled = false;
+      applyLocks(); updateCurrentHighlight(); refreshReadout(); drawProfile();
+      notice('Ride restored. Pair your trainer and press Resume.', 9000);
+      return true;
+    }
+    function offerRestore(d) {
+      const L = unpackLogs(d.logs);
+      const legacy = !d.items;
+      const ride = d.name ? `"${d.name}", ` : '';
+      $('resumeText').textContent = (d.done || legacy)
+        ? `An unsaved ride was found (${fmt(L.length)}). Save it as a .FIT file or discard it.`
+        : `Unfinished ride found: ${ride}${fmt(L.length)} ridden. Restore it, then pair your trainer and press Resume.`;
+      $('btnResume').hidden = !!(d.done || legacy);
+      $('resumeBar').hidden = false;
+      $('btnResume').onclick = () => { if (restoreRide(d, L)) $('resumeBar').hidden = true; };
+      $('btnResumeFit').onclick = () => { exportFit(L, new Date(d.start), d.name); store.del(DRAFT_KEY); $('resumeBar').hidden = true; };
+      $('btnResumeDiscard').onclick = () => { if (!confirm('Discard this ride for good?')) return; store.del(DRAFT_KEY); $('resumeBar').hidden = true; };
+    }
+
+    // ───────────────────────── Starter workouts and FTP tests ─────────────────────────
+    const P = (name, dur, a, b) => ({ kind: 'step', name, duration: dur, a, b, unit: 'pct' });
+    const MAXSTEP = (name, dur) => ({ kind: 'step', name, duration: dur, a: 100, unit: 'max' });
+    const G = (count, steps) => ({ kind: 'group', count, steps });
+    const STARTERS = [
+      { name: 'Endurance 60', desc: 'Steady, easy aerobic ride', items: [P('Warm-up', 600, 50, 65), P('Endurance', 2400, 65), P('Cool-down', 600, 60, 45)] },
+      { name: 'Tempo 2 x 15', desc: 'Two long tempo blocks', items: [P('Warm-up', 600, 50, 75), G(2, [P('Tempo', 900, 82), P('Recovery', 300, 55)]), P('Cool-down', 600, 60, 45)] },
+      { name: 'Sweet spot 3 x 12', desc: 'Just under threshold', items: [P('Warm-up', 600, 50, 75), G(3, [P('Sweet spot', 720, 90), P('Recovery', 240, 55)]), P('Cool-down', 480, 60, 45)] },
+      { name: 'Threshold 3 x 10', desc: 'At FTP', items: [P('Warm-up', 600, 50, 75), G(3, [P('Threshold', 600, 100), P('Recovery', 300, 55)]), P('Cool-down', 600, 60, 45)] },
+      { name: 'VO2 max 5 x 4', desc: 'Hard four-minute efforts', items: [P('Warm-up', 600, 50, 75), G(5, [P('VO2 max', 240, 115), P('Recovery', 240, 50)]), P('Cool-down', 600, 60, 45)] },
+      { name: 'Sprints 8 x 20 s', desc: 'Max effort, long recoveries', items: [P('Warm-up', 600, 50, 75), G(8, [MAXSTEP('Sprint', 20), P('Recovery', 220, 50)]), P('Cool-down', 600, 60, 45)] },
+      { name: 'FTP test (20 min)', desc: 'Ride the 20-minute effort flat out. FTP = 95% of the average.', test: 'ftp20',
+        items: [P('Warm-up', 600, 50, 75), P('Opener', 180, 100), P('Easy', 300, 50), MAXSTEP('20 min test', 1200), P('Cool-down', 300, 60, 40)] },
+      { name: 'FTP ramp test', desc: 'Power rises 6% of FTP a minute. Press Finish when you cannot go on. FTP = 75% of your best minute.', test: 'ramp',
+        items: [P('Warm-up', 300, 50), P('Ramp', 1500, 50, 200)] }
+    ];
+    function itemsTotal(items) {
+      return (normalizeWorkout(items) || []).reduce((a, it) => a + (it.kind === 'group' ? it.count * it.steps.reduce((x, s) => x + s.duration, 0) : it.duration), 0);
+    }
+    function loadStarter(s) {
+      if (applyWorkout(JSON.parse(JSON.stringify(s.items)), s.name)) {
+        testKind = s.test || null;
+        notice(s.test ? `${s.name} loaded. The FTP estimate appears in the summary when you finish.` : `${s.name} loaded.`);
+      }
+    }
+    function renderStarters() {
+      const list = $('starterList');
+      list.textContent = '';
+      STARTERS.forEach((s) => {
+        const row = document.createElement('div');
+        row.className = 'lib-item';
+        const label = document.createElement('span');
+        label.textContent = `${s.name} · ${fmt(itemsTotal(s.items))}`;
+        const d = document.createElement('span');
+        d.className = 'muted'; d.textContent = ' · ' + s.desc;
+        label.appendChild(d);
+        const btns = document.createElement('div');
+        btns.className = 'ed-btns';
+        btns.appendChild(mkBtn('Load', 'Load this workout', () => loadStarter(s)));
+        row.appendChild(label); row.appendChild(btns);
+        list.appendChild(row);
+      });
+    }
+
+    // ───────────────────────── Strava (manual upload) ─────────────────────────
+    $('btnSumStrava').onclick = () => {
+      const L = viewing ? viewing.logs : logs;
+      const st = viewing ? viewing.start : sessionStart;
+      const name = viewing ? viewing.name : workoutName;
+      if (!L.length || !st) return;
+      const title = 'ZERoad: ' + name;
+      exportFit(L, st, name);
+      if (!viewing) exported = true;
+      let copied = false;
+      try { navigator.clipboard.writeText(title).catch(() => {}); copied = true; } catch (e) { /* no clipboard */ }
+      try { window.open('https://www.strava.com/upload/select', '_blank', 'noopener'); } catch (e) { /* popup blocked */ }
+      sumMsg(`The .FIT file was downloaded and Strava's upload page opened. On Strava choose that file and name the activity: ${title}` + (copied ? ' (copied to your clipboard).' : '.'));
+    };
+    $('btnUseFtp').onclick = () => {
+      if (!curEst || !curEst.ok) return;
+      settings.ftp = clamp(curEst.ftp, 50, 600);
+      $('setFtp').value = settings.ftp;
+      settingsChanged();
+      sumMsg(`FTP set to ${settings.ftp} W.`);
+    };
+
+    // ───────────────────────── Trainer check (trainer vs power meter) ─────────────────────────
+    function trainerCheckData() {
+      const bins = [[50, 100], [100, 150], [150, 200], [200, 250], [250, 300], [300, 100000]];
+      const acc = bins.map(() => ({ n: 0, p: 0, t: 0 }));
+      let rides = 0;
+      loadHistory().forEach((e) => {
+        if (!e.hasData) return;
+        const v = getSession(e.id);
+        if (!v) return;
+        let used = false;
+        v.logs.forEach((l) => {
+          if (l.t == null || !(l.p >= 50)) return;       // only seconds where both devices reported
+          const i = bins.findIndex(b => l.p >= b[0] && l.p < b[1]);
+          if (i < 0) return;
+          acc[i].n++; acc[i].p += l.p; acc[i].t += l.t; used = true;
+        });
+        if (used) rides++;
+      });
+      const rows = bins.map((b, i) => {
+        const a = acc[i];
+        const label = b[1] > 9999 ? `${b[0]}+ W` : `${b[0]}–${b[1] - 1} W`;
+        if (a.n < 30) return { label, n: a.n };
+        const meter = a.p / a.n, trainer = a.t / a.n;
+        return { label, n: a.n, meter: Math.round(meter), trainer: Math.round(trainer), diff: Math.round(trainer - meter), pct: Math.round((trainer - meter) / meter * 1000) / 10 };
+      });
+      const tot = acc.reduce((s, a) => ({ n: s.n + a.n, p: s.p + a.p, t: s.t + a.t }), { n: 0, p: 0, t: 0 });
+      return { rows, rides, n: tot.n, overall: tot.n >= 30 ? Math.round((tot.t - tot.p) / tot.p * 1000) / 10 : null };
+    }
+    function trainerCheckText(d) {
+      const lines = [`ZEROAD Lean ERG Studio ${APP_VERSION}: trainer vs power meter`, `${d.rides} ride(s), ${fmt(d.n)} of data`, 'Meter range | Time | Meter avg | Trainer avg | Difference'];
+      d.rows.forEach(r => { if (r.meter != null) lines.push(`${r.label} | ${fmt(r.n)} | ${r.meter} W | ${r.trainer} W | ${r.diff > 0 ? '+' : ''}${r.diff} W (${r.pct > 0 ? '+' : ''}${r.pct}%)`); });
+      if (d.overall != null) lines.push(`Overall: the trainer reads ${Math.abs(d.overall)}% ${d.overall < 0 ? 'lower' : 'higher'} than the power meter.`);
+      return lines.join('\n');
+    }
+    function showTrainerCheck() {
+      const d = trainerCheckData();
+      const box = $('checkBody');
+      box.textContent = '';
+      if (!d.n) {
+        const p = document.createElement('div');
+        p.className = 'muted';
+        p.textContent = 'No rides with both a trainer and a power meter yet. Pair both, ride, and finish the session. The comparison appears here.';
+        box.appendChild(p);
+        $('btnCheckCopy').hidden = true;
+      } else {
+        const sum = document.createElement('div');
+        sum.style.fontWeight = '700';
+        sum.textContent = d.overall == null ? 'Not enough data yet.' : `Overall, the trainer reads ${Math.abs(d.overall)}% ${d.overall < 0 ? 'lower' : 'higher'} than the power meter (${d.rides} ride${d.rides === 1 ? '' : 's'}, ${fmt(d.n)}).`;
+        box.appendChild(sum);
+        const wrap = document.createElement('div');
+        wrap.className = 'scroll';
+        const tbl = document.createElement('table');
+        tbl.className = 'tbl';
+        const head = document.createElement('tr');
+        ['Meter range', 'Time', 'Meter avg', 'Trainer avg', 'Difference'].forEach(h => { const th = document.createElement('th'); th.textContent = h; head.appendChild(th); });
+        const thead = document.createElement('thead'); thead.appendChild(head); tbl.appendChild(thead);
+        const tb = document.createElement('tbody');
+        d.rows.forEach(r => {
+          const tr = document.createElement('tr');
+          const cells = r.meter == null ? [r.label, fmt(r.n), '--', '--', 'not enough data'] : [r.label, fmt(r.n), r.meter + ' W', r.trainer + ' W', `${r.diff > 0 ? '+' : ''}${r.diff} W (${r.pct > 0 ? '+' : ''}${r.pct}%)`];
+          cells.forEach(c => { const td = document.createElement('td'); td.textContent = c; tr.appendChild(td); });
+          tb.appendChild(tr);
+        });
+        tbl.appendChild(tb); wrap.appendChild(tbl); box.appendChild(wrap);
+        $('btnCheckCopy').hidden = false;
+        $('btnCheckCopy').onclick = () => { copyText(trainerCheckText(d)); $('btnCheckCopy').textContent = 'Copied'; setTimeout(() => { $('btnCheckCopy').textContent = 'Copy report'; }, 1500); };
+      }
+      $('historyOverlay').hidden = true;
+      $('checkOverlay').hidden = false;
+    }
+    $('btnTrainerCheck').onclick = showTrainerCheck;
+    $('btnCheckClose').onclick = () => { $('checkOverlay').hidden = true; showHistory(); };
+
+    // ───────────────────────── Backup, restore, delete ─────────────────────────
+    const APP_ID = 'zeroad-lean-erg-studio';
+    function copyText(text) {
+      try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).catch(() => {}); return true; } } catch (e) { /* fall through */ }
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+        return true;
+      } catch (e) { return false; }
+    }
+    function appKeys() {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('lean-erg-')) keys.push(k); }
+      return keys;
+    }
+    $('btnBackup').onclick = () => {
+      const data = {};
+      try { appKeys().filter(k => k !== DRAFT_KEY).forEach(k => { data[k] = localStorage.getItem(k); }); } catch (e) { notice('Could not read the stored data.'); return; }
+      const out = { app: APP_ID, version: APP_VERSION, exported: new Date().toISOString(), data };
+      download(new Blob([JSON.stringify(out)], { type: 'application/json' }), `zeroad-backup-${new Date().toISOString().slice(0, 10)}.json`);
+      setSettingsMsg('Backup file downloaded.');
+    };
+    $('fileRestore').onchange = (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      if (inProgress()) { setSettingsMsg('Finish the current session before restoring.'); return; }
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        let obj = null;
+        try { obj = JSON.parse(String(evt.target.result)); } catch (err) { obj = null; }
+        if (!obj || obj.app !== APP_ID || !obj.data || typeof obj.data !== 'object') { setSettingsMsg('That is not a ZEROAD backup file.'); return; }
+        const keys = Object.keys(obj.data).filter(k => k.startsWith('lean-erg-') && k !== DRAFT_KEY && typeof obj.data[k] === 'string');
+        if (!keys.length) { setSettingsMsg('The backup file is empty.'); return; }
+        if (!confirm(`Restore ${keys.length} stored items from this backup? This replaces your current history, workouts and settings.`)) return;
+        try {
+          appKeys().filter(k => k !== DRAFT_KEY).forEach(k => localStorage.removeItem(k));
+          keys.forEach(k => localStorage.setItem(k, obj.data[k]));
+        } catch (err) { setSettingsMsg('Not enough storage space to restore this backup.'); return; }
+        location.reload();
+      };
+      reader.readAsText(file);
+    };
+    $('btnDeleteAll').onclick = () => {
+      if (inProgress()) { setSettingsMsg('Finish the current session first.'); return; }
+      if (!confirm('Delete ALL data on this device: history, saved workouts, settings and ride data? This cannot be undone. Back up first if unsure.')) return;
+      try { appKeys().forEach(k => localStorage.removeItem(k)); } catch (e) { /* ignore */ }
+      location.reload();
+    };
+    function setSettingsMsg(t) { $('setMsg').textContent = t || ''; }
+
+    // ───────────────────────── About, debug info ─────────────────────────
+    const errLog = [];
+    window.addEventListener('error', (e) => { errLog.push(`${new Date().toISOString().slice(11, 19)} ${e.message}`); if (errLog.length > 20) errLog.shift(); });
+    window.addEventListener('unhandledrejection', (e) => { errLog.push(`${new Date().toISOString().slice(11, 19)} ${String(e.reason && e.reason.message || e.reason)}`); if (errLog.length > 20) errLog.shift(); });
+    function debugInfo() {
+      const dev = (d) => d ? (d.name || 'unnamed') + (d.gatt && d.gatt.connected ? ' (connected)' : ' (not connected)') : 'none';
+      let used = 0;
+      try { appKeys().forEach(k => { used += (localStorage.getItem(k) || '').length; }); } catch (e) { /* ignore */ }
+      return [
+        `ZEROAD Lean ERG Studio ${APP_VERSION} (${APP_DATE})`,
+        `Browser: ${navigator.userAgent}`,
+        `Secure page: ${window.isSecureContext ? 'yes' : 'no'} · Bluetooth: ${navigator.bluetooth ? 'yes' : 'no'} · Wake lock: ${'wakeLock' in navigator ? 'yes' : 'no'} · Speech: ${'speechSynthesis' in window ? 'yes' : 'no'}`,
+        `Trainer: ${dev(trainerDevice)} · Power meter: ${dev(pmDevice)} · HR strap: ${dev(hrDevice)}`,
+        `Settings: FTP ${settings.ftp} W, units ${settings.units}, smooth ${settings.smooth}, auto-pause ${settings.autoPause ? 'on' : 'off'}, max effort grade ${settings.maxGrade}%`,
+        `Mode: ${mode}, ride ${sessionStart ? (finished ? 'finished' : running ? 'running' : 'paused') : 'not started'}, cadence reported: ${cadenceSeen ? 'yes' : 'no'}`,
+        `Stored data: ${Math.round(used / 1024)} KB, history entries ${loadHistory().length}`,
+        `Recent errors: ${errLog.length ? '\n' + errLog.join('\n') : 'none'}`
+      ].join('\n');
+    }
+    function showAbout() {
+      $('aboutVer').textContent = `Version ${APP_VERSION} · ${APP_DATE}`;
+      $('aboutDebug').textContent = debugInfo();
+      $('aboutOverlay').hidden = false;
+    }
+    $('btnAbout').onclick = showAbout;
+    $('btnAboutClose').onclick = () => { $('aboutOverlay').hidden = true; };
+    $('btnCopyDebug').onclick = () => { copyText(debugInfo()); $('btnCopyDebug').textContent = 'Copied'; setTimeout(() => { $('btnCopyDebug').textContent = 'Copy debug info'; }, 1500); };
+    $('linkReport').href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('ZEROAD Lean ERG Studio ' + APP_VERSION + ': problem report')}`;
+    $('linkMail').href = `mailto:${CONTACT_EMAIL}`;
+    $('linkMail').textContent = CONTACT_EMAIL;
+    $('linkSite').href = SITE_URL;
+    $('linkSite').textContent = SITE_URL.replace(/^https:\/\//, '');
+    if (SUPPORT_URL) { $('linkCoffee').href = SUPPORT_URL; $('rowCoffee').hidden = false; }
+
+    // ───────────────────────── Settings window, full screen, welcome ─────────────────────────
+    $('btnSettings').onclick = () => { setSettingsMsg(''); $('settingsOverlay').hidden = false; };
+    $('btnSetClose').onclick = () => { $('settingsOverlay').hidden = true; };
+    ['settingsOverlay', 'aboutOverlay', 'checkOverlay'].forEach((id) => {
+      $(id).addEventListener('click', (e) => { if (e.target === e.currentTarget) { $(id).hidden = true; if (id === 'checkOverlay') showHistory(); } });
+    });
+
+    function setFocusMode(on) {
+      document.body.classList.toggle('focus', on);
+      $('btnFull').textContent = on ? 'Exit full screen' : 'Full screen';
+      drawProfile();
+    }
+    $('btnFull').onclick = () => {
+      const on = !document.body.classList.contains('focus');
+      setFocusMode(on);
+      try {
+        if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+        else if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      } catch (e) { /* the page-only mode still works */ }
+    };
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('focus')) setFocusMode(false); });
+    $('btnWelcomeOk').onclick = () => { $('welcome').hidden = true; store.set('lean-erg-welcome', 1); };
+
+    const OVERLAYS = ['checkOverlay', 'aboutOverlay', 'settingsOverlay', 'summaryOverlay', 'historyOverlay'];
+    const anyOverlay = () => OVERLAYS.some(id => !$(id).hidden);
+    function closeTopOverlay() {
+      for (const id of OVERLAYS) {
+        if ($(id).hidden) continue;
+        if (id === 'summaryOverlay') closeSummary();
+        else { $(id).hidden = true; if (id === 'checkOverlay') showHistory(); }
+        return true;
+      }
+      return false;
+    }
 
     // ───────────────────────── Keyboard & misc ─────────────────────────
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { if (!$('summaryOverlay').hidden) closeSummary(); else $('historyOverlay').hidden = true; return; }
+      if (e.key === 'Escape') { if (!closeTopOverlay() && document.body.classList.contains('focus')) setFocusMode(false); return; }
       const tag = (e.target && e.target.tagName) || '';
       if (/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(tag) || (e.target && e.target.isContentEditable)) return;
       const key = String(e.key).toLowerCase();
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && key === 'z') { e.preventDefault(); undo(); return; }
       if ((e.ctrlKey || e.metaKey) && (key === 'y' || (e.shiftKey && key === 'z'))) { e.preventDefault(); redo(); return; }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (!$('summaryOverlay').hidden || !$('historyOverlay').hidden) return;
+      if (anyOverlay()) return;
       if (e.key === ' ') { e.preventDefault(); if (!$('btnPlayPause').disabled) togglePlayPause(); }
       else if (e.key === 'ArrowUp' && running) { e.preventDefault(); nudge(1); }
       else if (e.key === 'ArrowDown' && running) { e.preventDefault(); nudge(-1); }
@@ -2646,9 +3346,16 @@
       $('workoutName').value = workoutName;
 
       $('setFtp').value = settings.ftp;
-      $('setWeight').value = settings.weight || '';
+      $('setMaxHR').value = settings.maxHR || '';
+      $('setUnits').value = settings.units;
+      applyUnitsUI();
       $('setSmooth').value = String(settings.smooth);
       $('setSound').checked = !!settings.sound;
+      $('setSpeech').checked = !!settings.speech;
+      $('setAutoPause').checked = !!settings.autoPause;
+      $('setMaxGrade').value = settings.maxGrade;
+      if (!('speechSynthesis' in window)) { $('setSpeech').disabled = true; $('setSpeech').checked = false; }
+      if (!store.get('lean-erg-welcome', 0)) $('welcome').hidden = false;
       $('inputUnit').value = settings.unit === 'pct' ? 'pct' : 'w';
       if (settings.unit === 'pct') { $('inputTarget').value = 90; }
 
@@ -2656,6 +3363,7 @@
       baseTarget = flat[0] ? stepStartW(flat[0].step) : 100;
       renderPlanner();
       renderLibrary();
+      renderStarters();
       updatePlanStats();
       updateTargetDisplay();
       updateDisplay();
@@ -2664,13 +3372,7 @@
 
       try {
         const d = store.get(DRAFT_KEY, null);
-        if (d && Array.isArray(d.logs)) {
-          const rec = d.logs.map(a => ({ p: a[0], c: a[1], h: a[2], s: a[3], d: a[4] }));
-          if (rec.length > 60 && confirm(`Found an unsaved session (${Math.round(rec.length / 60)} min). OK = download it as .FIT, Cancel = discard it.`)) {
-            exportFit(rec, new Date(d.start));
-          }
-          store.del(DRAFT_KEY);
-        }
+        if (d && Array.isArray(d.logs) && d.logs.length > 30) offerRestore(d); else if (d) store.del(DRAFT_KEY);
       } catch (e) { /* ignore */ }
 
       if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
