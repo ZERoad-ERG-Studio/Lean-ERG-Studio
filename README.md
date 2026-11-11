@@ -72,11 +72,6 @@ A smart-trainer workout app in a single HTML file. Pair your trainer over Blueto
 | Right | Skip to the next interval |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 
-## Host it yourself (GitHub Pages)
-
-1. Put `index.html` in the root of the repository. This single file is the whole app.
-2. In the repository go to **Settings → Pages**, choose the branch and the root folder, and save.
-3. Open the address GitHub gives you.
 
 Optional, for installing the app and using it offline: also add `manifest.webmanifest`, `sw.js`, `icon-192.png` and `icon-512.png` next to `index.html`.
 
