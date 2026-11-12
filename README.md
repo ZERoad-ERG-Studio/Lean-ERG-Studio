@@ -18,6 +18,7 @@ A smart-trainer workout app in a single HTML file. Pair your trainer over Blueto
 - **Cadence ranges** in intervals (for example 90-100 rpm), with a clear cue when you are outside the range.
 - **Auto-pause** (optional): the timer stops after 5 seconds without pedalling and resumes when you pedal again.
 - **Spoken cues** (optional): the interval and its target are read out when it starts, and what comes next 10 seconds before the end.
+- Speed and distance are calculated from your power (rider weight plus a 9 kg bike, flat road in ERG, the set grade in SIM), because a trainer's own speed follows cadence rather than power in ERG mode. They are estimates.
 - Large live readouts: power, target, cadence, heart rate (with zone), session time and interval time, each as elapsed / total.
 - Interval cues (beeps and a screen flash), smooth transitions, screen wake lock, a full-screen mode with only the numbers and the graph.
 - **Restore an interrupted ride** after a crash, a closed tab or a dead battery.
@@ -72,6 +73,11 @@ A smart-trainer workout app in a single HTML file. Pair your trainer over Blueto
 | Right | Skip to the next interval |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 
+## Host it yourself (GitHub Pages)
+
+1. Put `index.html` in the root of the repository. This single file is the whole app.
+2. In the repository go to **Settings → Pages**, choose the branch and the root folder, and save.
+3. Open the address GitHub gives you.
 
 Optional, for installing the app and using it offline: also add `manifest.webmanifest`, `sw.js`, `icon-192.png` and `icon-512.png` next to `index.html`.
 

@@ -524,11 +524,13 @@
         <h3 style="color:var(--ink)">Help</h3>
         <p><b>Keys:</b> Space start / pause &middot; Up / Down nudge the target (grade in SIM) while riding &middot; Right skip the interval &middot; Ctrl+Z / Ctrl+Y undo / redo.</p>
         <p><b>Power meter:</b> with a power meter paired, ERG follows the meter. About once a second the app fine-tunes the target it sends the trainer until the meter shows the target power. After a big step (for example 180 to 240 W) it can take up to about 15 seconds to settle. No calibration is stored. If the meter signal drops, the app shows the trainer's reading and holds the last adjustment.</p>
+        <p><b>Speed and distance:</b> calculated from your power (rider weight from Settings plus a 9 kg bike, a normal riding position, flat road in ERG, the set grade in SIM). It is an estimate: the trainer's own speed is not used, because it follows your cadence, not your power.</p>
         <p><b>Trainer check:</b> History &rarr; Trainer check compares the trainer's own reading with your power meter across your rides.</p>
       </section>
 
       <section class="set-group legal">
         <h3 style="color:var(--ink)">What's new</h3>
+        <p><b>1.0.1</b> &middot; Speed and distance are now calculated from power, so an easy ride no longer shows 40 km/h.</p>
         <p><b>1.0.0</b> &middot; Settings window with units, auto-pause, spoken cues and backup / restore. Max effort steps and cadence ranges. Starter workouts and FTP tests. Heart-rate zones. Send to Strava. Trainer check. Restore an interrupted ride. Full-screen mode.</p>
       </section>
 
@@ -610,7 +612,7 @@
     }
 
     // ───────────────────────── Settings ─────────────────────────
-    const APP_VERSION = '1.0.0', APP_DATE = '2026-11-11';
+    const APP_VERSION = '1.0.1', APP_DATE = '2026-11-12';
     const CONTACT_EMAIL = 'zero.fluff.fuel@gmail.com';
     const SITE_URL = 'https://zeroad-erg-studio.github.io/Lean-ERG-Studio/';
     const SUPPORT_URL = 'https://buymeacoffee.com/zero.fluff.fuel';   // "Buy me a coffee" link shown in About (leave empty to hide it)
@@ -1450,7 +1452,7 @@
       let o = 2;
       const has = (n) => o + n <= v.byteLength;
 
-      if (!(f & 0x0001)) { if (has(2)) liveSpeed = v.getUint16(o, true) * 0.01 / 3.6; o += 2; } // inst. speed (bit 0 is inverted)
+      if (!(f & 0x0001)) o += 2;                                                                // inst. speed: not used (speed is calculated from power, see nextSpeed)
       if (f & 0x0002) o += 2;                                                                   // average speed
       if (f & 0x0004) { if (has(2)) { liveCadence = Math.round(v.getUint16(o, true) * 0.5); cadenceSeen = true; } o += 2; } // inst. cadence
       if (f & 0x0008) o += 2;                                                                   // average cadence
@@ -1697,7 +1699,7 @@
       try { if (hrDevice && hrDevice.gatt && hrDevice.gatt.connected) hrDevice.gatt.disconnect(); } catch (e) { /* ignore */ }
       try { if (pmDevice && pmDevice.gatt && pmDevice.gatt.connected) pmDevice.gatt.disconnect(); } catch (e) { /* ignore */ }
       controlChar = null; bikeChar = null; pmChar = null;
-      trainerPower = 0; pmPower = 0; pmLastTs = 0; liveCadence = 0; liveSpeed = 0; trainerHR = 0; strapHR = 0; tBuf = []; pBuf = [];
+      trainerPower = 0; pmPower = 0; pmLastTs = 0; liveCadence = 0; liveSpeed = 0; modelSpeed = 0; trainerHR = 0; strapHR = 0; tBuf = []; pBuf = [];
       trim = 0; lastSentW = null;
       setTrainerUI(false);
       setPmUI(false);
@@ -1749,8 +1751,23 @@
     }
 
     // ───────────────────────── Session player ─────────────────────────
+    // Speed and distance are calculated from power. In ERG mode the trainer's own speed follows cadence (a fixed virtual gear),
+    // not power, so it is far too fast at easy watts. This is the usual power-balance model: rider + bike mass, air and rolling resistance.
+    const SPEED_MODEL = { bike: 9, cda: 0.32, crr: 0.004, rho: 1.2, eff: 0.975, g: 9.81 };
+    let modelSpeed = 0;                                  // m/s
+    function nextSpeed(v, P, pedalling, gradePct, riderKg) {
+      if (!pedalling) return v < 0.5 ? 0 : v * 0.6;      // stopped pedalling: a trainer comes to rest quickly
+      const M = SPEED_MODEL;
+      const m = (riderKg > 0 ? riderKg : 75) + M.bike;
+      const th = Math.atan(gradePct / 100);
+      const drive = M.eff * Math.max(P, 0) / Math.max(v, 2);
+      const resist = 0.5 * M.rho * M.cda * v * v + M.crr * m * M.g * Math.cos(th) + m * M.g * Math.sin(th);
+      return Math.max(0, v + (drive - resist) / m);      // one-second step
+    }
     function logSample() {
       exported = false;
+      const pw = currentPower();
+      liveSpeed = modelSpeed = nextSpeed(modelSpeed, pw, cadenceSeen ? liveCadence > 0 : pw > 5, mode === 'sim' ? grade : 0, settings.weight);
       distance += liveSpeed;
       let k = -1;
       if (mode === 'erg') k = curStepIdx >= 0 ? curStepIdx : (stepAt(posSec()) || { idx: -1 }).idx;
@@ -1884,7 +1901,7 @@
       running = true;
       t0 = performance.now();
       if (!sessionStart) sessionStart = new Date();
-      autoPaused = false; pedalArmed = false; stillSince = 0; resumeSince = 0;
+      autoPaused = false; pedalArmed = false; stillSince = 0; resumeSince = 0; modelSpeed = 0;
       acquireWake();
       startTicking();
       cpSend([0x07]);                            // Start / Resume
