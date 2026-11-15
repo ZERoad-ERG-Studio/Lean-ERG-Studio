@@ -535,6 +535,7 @@
 
       <section class="set-group legal">
         <h3 style="color:var(--ink)">What's new</h3>
+        <p><b>1.0.3</b> &middot; Fixed a pairing bug: after "Disconnect all" a device that had been paired as the power meter could not be paired as the trainer. When a device cannot be used as a trainer, the debug info now lists what it offers.</p>
         <p><b>1.0.2</b> &middot; Pairing finds more trainers (for example Van Rysel), checks that the chosen device can really be controlled and says so if not. "Show all devices" as a fallback. The power meter button is now optional and says so.</p>
         <p><b>1.0.1</b> &middot; Speed and distance are now calculated from power, so an easy ride no longer shows 40 km/h.</p>
         <p><b>1.0.0</b> &middot; Settings window with units, auto-pause, spoken cues and backup / restore. Max effort steps and cadence ranges. Starter workouts and FTP tests. Heart-rate zones. Send to Strava. Trainer check. Restore an interrupted ride. Full-screen mode.</p>
@@ -618,7 +619,7 @@
     }
 
     // ───────────────────────── Settings ─────────────────────────
-    const APP_VERSION = '1.0.2', APP_DATE = '2026-11-15';
+    const APP_VERSION = '1.0.3', APP_DATE = '2026-11-15';
     const CONTACT_EMAIL = 'zero.fluff.fuel@gmail.com';
     const SITE_URL = 'https://zeroad-erg-studio.github.io/Lean-ERG-Studio/';
     const SUPPORT_URL = 'https://buymeacoffee.com/zero.fluff.fuel';   // "Buy me a coffee" link shown in About (leave empty to hide it)
@@ -1586,11 +1587,33 @@
     // Many trainers do not advertise the trainer-control service (FTMS) in their Bluetooth announcement,
     // only the power service or just a name. So the list accepts any of those, and the app checks for
     // real trainer control after connecting. "Show all devices" is the fallback for anything else.
+    const SERVICE_NAMES = { '0x1826': 'FTMS trainer control', '0x1818': 'cycling power', '0x1816': 'speed and cadence', '0x180d': 'heart rate', '0x180a': 'device info', '0x180f': 'battery',
+      '6e40fec1-b5a3-f393-e0a9-e50e24dcca9e': 'FE-C over Bluetooth', 'a026ee01-0a7d-4ab3-97fa-f1500f9feb8b': 'Wahoo', 'a026ee0b-0a7d-4ab3-97fa-f1500f9feb8b': 'Wahoo control' };
+    const PROBE_SERVICES = [0x1826, 0x1818, 0x1816, 0x180D, 0x180A, 0x180F, '6e40fec1-b5a3-f393-e0a9-e50e24dcca9e', 'a026ee01-0a7d-4ab3-97fa-f1500f9feb8b', 'a026ee0b-0a7d-4ab3-97fa-f1500f9feb8b'];
+    let lastPairReport = '';
+    const shortUuid = (u) => { const m = /^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/i.exec(u); return m ? '0x' + m[1] : u; };
+    // Lists the services (and their characteristics) a device offers, so a trainer that cannot be used can be diagnosed.
+    async function describeDevice(dev) {
+      try {
+        if (!dev.gatt.connected) await dev.gatt.connect();
+        let svcs = [];
+        try { svcs = await dev.gatt.getPrimaryServices(); } catch (e) { if (e.name !== 'NotFoundError') throw e; }
+        if (!svcs.length) return 'none of the known services found';
+        const lines = [];
+        for (const sv of svcs) {
+          let chars = [];
+          try { chars = (await sv.getCharacteristics()).map(c => shortUuid(c.uuid)); } catch (e) { /* ignore */ }
+          const id = shortUuid(sv.uuid);
+          lines.push(`${id}${SERVICE_NAMES[id.toLowerCase()] ? ' (' + SERVICE_NAMES[id.toLowerCase()] + ')' : ''}: ${chars.join(', ') || 'no characteristics read'}`);
+        }
+        return lines.join('\n');
+      } catch (e) { return 'could not read services: ' + e.message; }
+    }
     async function pairTrainer(showAll) {
       let dev = null;
       try {
         const opts = showAll
-          ? { acceptAllDevices: true, optionalServices: [FTMS_SERVICE] }
+          ? { acceptAllDevices: true, optionalServices: PROBE_SERVICES }
           : {
               filters: [
                 { services: [FTMS_SERVICE] }, { services: [CYCLING_POWER_SERVICE] },
@@ -1598,7 +1621,7 @@
                 { namePrefix: 'Elite' }, { namePrefix: 'ELITE' },
                 { namePrefix: 'Van Rysel' }, { namePrefix: 'VAN RYSEL' }, { namePrefix: 'Van rysel' }
               ],
-              optionalServices: [FTMS_SERVICE]
+              optionalServices: PROBE_SERVICES
             };
         dev = await navigator.bluetooth.requestDevice(opts);
       } catch (err) {
@@ -1606,7 +1629,8 @@
         else { console.error('Trainer connection error:', err); setStatus('Trainer connection failed: ' + err.message); }
         return;
       }
-      if (pmDevice && dev.id === pmDevice.id) { notice('That device is already paired as the power meter. Press Disconnect all, then pair it as the trainer.'); return; }
+      if (pmConnected() && dev.id === pmDevice.id) { notice('That device is already paired as the power meter. Press Disconnect all, then pair it as the trainer.'); return; }
+      if (pmDevice && dev.id === pmDevice.id) { pmDevice.removeEventListener('gattserverdisconnected', onPmDisconnected); pmDevice = null; pmChar = null; setPmUI(false); }   // stale power-meter pairing of the same device
       try {
         trainerDevice = dev;
         userDisconnect = false;
@@ -1620,11 +1644,12 @@
         console.error('Trainer connection error:', err);
         const noCtl = err.name === 'NotFoundError';
         dev.removeEventListener('gattserverdisconnected', onTrainerDisconnected);   // no auto-reconnect to this device
+        if (noCtl) lastPairReport = `${dev.name || 'unnamed'} offered:\n` + await describeDevice(dev);
         try { if (dev.gatt.connected) dev.gatt.disconnect(); } catch (e) { /* ignore */ }
         trainerDevice = null; controlChar = null; bikeChar = null;
         setTrainerUI(false);
         setStatus(noCtl
-          ? `"${dev.name || 'This device'}" does not offer trainer control (FTMS), so ERG cannot run on it. If it is a power meter, use "Add power meter" instead.`
+          ? `"${dev.name || 'This device'}" does not offer the trainer control (FTMS) that ERG needs. If it is a power meter, use "Add power meter" instead. Otherwise open About, press Copy debug info and send it to the contact address: it lists what this device offers.`
           : 'Trainer connection failed: ' + err.message);
       }
     }
@@ -1738,9 +1763,11 @@
       try { await cpQueue; } catch (e) { /* ignore */ }
       const t = trainerDevice;
       trainerDevice = null;
+      const pmd = pmDevice;
       try { if (t && t.gatt && t.gatt.connected) t.gatt.disconnect(); } catch (e) { /* ignore */ }
       try { if (hrDevice && hrDevice.gatt && hrDevice.gatt.connected) hrDevice.gatt.disconnect(); } catch (e) { /* ignore */ }
-      try { if (pmDevice && pmDevice.gatt && pmDevice.gatt.connected) pmDevice.gatt.disconnect(); } catch (e) { /* ignore */ }
+      try { if (pmd && pmd.gatt && pmd.gatt.connected) pmd.gatt.disconnect(); } catch (e) { /* ignore */ }
+      pmDevice = null;
       controlChar = null; bikeChar = null; pmChar = null;
       trainerPower = 0; pmPower = 0; pmLastTs = 0; liveCadence = 0; liveSpeed = 0; modelSpeed = 0; trainerHR = 0; strapHR = 0; tBuf = []; pBuf = [];
       trim = 0; lastSentW = null;
@@ -3202,6 +3229,7 @@
         `Settings: FTP ${settings.ftp} W, units ${settings.units}, smooth ${settings.smooth}, auto-pause ${settings.autoPause ? 'on' : 'off'}, max effort grade ${settings.maxGrade}%`,
         `Mode: ${mode}, ride ${sessionStart ? (finished ? 'finished' : running ? 'running' : 'paused') : 'not started'}, cadence reported: ${cadenceSeen ? 'yes' : 'no'}`,
         `Stored data: ${Math.round(used / 1024)} KB, history entries ${loadHistory().length}`,
+        `Last pairing problem: ${lastPairReport || 'none'}`,
         `Recent errors: ${errLog.length ? '\n' + errLog.join('\n') : 'none'}`
       ].join('\n');
     }

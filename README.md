@@ -2,7 +2,7 @@
 
 **Zero fluff // max effort.**
 
-Version 1.0.2 &middot; 15 November 2026
+Version 1.0.3 &middot; 15 November 2026
 
 A smart-trainer workout app in a single HTML file. Pair your trainer over Bluetooth, build or import a workout, and ride it in ERG mode. No accounts, no tracking, no server: your rides stay on your device.
 
