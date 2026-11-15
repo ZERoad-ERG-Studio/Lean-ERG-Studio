@@ -81,10 +81,10 @@
     /* Live readouts: ruled cells, "Label: VALUE" like the box */
     .grid-metrics { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--ink); border-left: 1px solid var(--ink); }
     .cell { border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 1rem 1.1rem; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
-    .cell.span2 { grid-column: span 2; }
+    .cell.span2 { grid-column: span 2; container-type: inline-size; }   /* the time text below scales with the cell so hours never spill into the next cell */
     .label { font-size: 13px; }
     .val { font-family: var(--sans); font-weight: 800; font-size: 3.6rem; line-height: 1; letter-spacing: -0.04em; margin-top: 0.6rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .val.time { font-size: clamp(1.7rem, 4.6vw, 3.2rem); }
+    .val.time { font-size: clamp(1.7rem, 4.6vw, 3.2rem); font-size: clamp(1.1rem, 8.2cqw, 3.2rem); }
     .val .of { color: var(--muted); }
     .sub { font-size: 11px; color: var(--muted); min-height: 1.2em; margin-top: 0.5rem; }
 
@@ -197,7 +197,8 @@
     ol.steps { padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.3rem; }
     body.focus > header, body.focus > footer, body.focus > section.panel:not(#tlPanel), body.focus #tlPanel .hint, body.focus #welcome, body.focus #resumeBar, body.focus #selBar { display: none !important; }
     body.focus .val { font-size: 4.6rem; }
-    body.focus .val.time { font-size: clamp(2rem, 6vw, 4.4rem); }
+    body.focus { max-width: min(1800px, 100%); }
+    body.focus .val.time { font-size: clamp(2rem, 6vw, 4.4rem); font-size: clamp(1.4rem, 8.2cqw, 5rem); }
     body.focus #profileCanvas { height: 34vh; }
     @media (max-width: 700px) {
       body { padding: 0.75rem; gap: 0.9rem; }
@@ -529,7 +530,7 @@
       <section class="set-group legal">
         <h3 style="color:var(--ink)">Help</h3>
         <p><b>Keys:</b> Space start / pause &middot; Up / Down nudge the target (grade in SIM) while riding &middot; Right skip the interval &middot; Ctrl+Z / Ctrl+Y undo / redo.</p>
-        <p><b>Trainer:</b> press Pair trainer and pick your trainer. If it is not listed, press Show all devices. The trainer measures power itself, so a separate power meter is optional.</p>
+        <p><b>Trainer:</b> press Pair trainer and pick your trainer. If it is not listed, press Show all devices. Trainers that speak FTMS or FE-C over Bluetooth are supported. The trainer measures power itself, so a separate power meter is optional.</p>
         <p><b>Power meter (optional):</b> with a separate power meter paired, ERG follows the meter. About once a second the app fine-tunes the target it sends the trainer until the meter shows the target power. After a big step (for example 180 to 240 W) it can take up to about 15 seconds to settle. No calibration is stored. If the meter signal drops, the app shows the trainer's reading and holds the last adjustment.</p>
         <p><b>Speed and distance:</b> calculated from your power (rider weight from Settings plus a 9 kg bike, a normal riding position, flat road in ERG, the set grade in SIM). It is an estimate: the trainer's own speed is not used, because it follows your cadence, not your power.</p>
         <p><b>Trainer check:</b> History &rarr; Trainer check compares the trainer's own reading with your power meter across your rides.</p>
@@ -537,6 +538,8 @@
 
       <section class="set-group legal">
         <h3 style="color:var(--ink)">What's new</h3>
+        <p><b>1.1.1</b> &middot; Pairing errors now say at which step they happened and the debug info lists the trainer's characteristics. The FE-C setup also copes with trainers that swap the send and receive characteristics. A hint appears when the app is opened from a file instead of the web address. The session and interval times no longer run into each other in full screen once a ride is over an hour.</p>
+        <p><b>1.1.0</b> &middot; Trainers that use FE-C over Bluetooth instead of FTMS (for example Van Rysel) can now be paired and controlled. The app picks the right protocol by itself. New and not yet tested on many trainers: please report problems.</p>
         <p><b>1.0.4</b> &middot; Dark mode: the options in drop-down menus are now readable before you pick one.</p>
         <p><b>1.0.3</b> &middot; Fixed a pairing bug: after "Disconnect all" a device that had been paired as the power meter could not be paired as the trainer. When a device cannot be used as a trainer, the debug info now lists what it offers.</p>
         <p><b>1.0.2</b> &middot; Pairing finds more trainers (for example Van Rysel), checks that the chosen device can really be controlled and says so if not. "Show all devices" as a fallback. The power meter button is now optional and says so.</p>
@@ -573,6 +576,7 @@
     // ───────────────────────── Constants & helpers ─────────────────────────
     const FTMS_SERVICE = 0x1826;
     const FTMS_BIKE_DATA = 0x2AD2;
+    const FEC_SERVICE = '6e40fec1-b5a3-f393-e0a9-e50e24dcca9e', FEC_TX = '6e40fec2-b5a3-f393-e0a9-e50e24dcca9e', FEC_RX = '6e40fec3-b5a3-f393-e0a9-e50e24dcca9e';   // ANT+ FE-C over Bluetooth (Tacx style)
     const FTMS_CONTROL_POINT = 0x2AD9;
     const HR_SERVICE = 0x180D;
     const HR_MEASUREMENT = 0x2A37;
@@ -622,7 +626,7 @@
     }
 
     // ───────────────────────── Settings ─────────────────────────
-    const APP_VERSION = '1.0.4', APP_DATE = '2026-11-15';
+    const APP_VERSION = '1.1.1', APP_DATE = '2026-11-15';
     const CONTACT_EMAIL = 'zero.fluff.fuel@gmail.com';
     const SITE_URL = 'https://zeroad-erg-studio.github.io/Lean-ERG-Studio/';
     const SUPPORT_URL = 'https://buymeacoffee.com/zero.fluff.fuel';   // "Buy me a coffee" link shown in About (leave empty to hide it)
@@ -1333,6 +1337,7 @@
     function cpSend(bytes) {
       const run = async () => {
         if (!controlChar) return null;
+        if (trainerProto === 'fec') return fecCommand(bytes);
         const op = bytes[0];
         const reply = new Promise(resolve => {
           pending.set(op, resolve);
@@ -1354,6 +1359,82 @@
       cpQueue = p;
       p.then(() => { cpPending--; }, () => { cpPending--; });
       return p;
+    }
+
+    // ───────────────────────── Trainer control (FE-C over Bluetooth) ─────────────────────────
+    // Some trainers (Tacx style, for example Van Rysel) offer ANT+ FE-C over Bluetooth instead of FTMS. The rest of the app keeps
+    // speaking FTMS commands (cpSend); for these trainers they are translated into FE-C data pages here.
+    // Each message is an ANT frame: A4 | length 9 | message id 4F | channel | 8 data bytes | XOR checksum.
+    let trainerProto = 'ftms';
+    let fecRxBuf = [];
+    const feInfo = { tx: [], rx: {}, last: {}, bad: 0 };
+    const hex = (a) => Array.from(a).map(x => x.toString(16).padStart(2, '0')).join(' ');
+    function fecFrame(data) {
+      const m = [0xA4, 0x09, 0x4F, 0x05].concat(data);
+      let c = 0; m.forEach(x => { c ^= x; });
+      m.push(c);
+      return new Uint8Array(m);
+    }
+    async function fecWrite(data) {
+      const frame = fecFrame(data);
+      feInfo.tx.push(hex(frame)); if (feInfo.tx.length > 6) feInfo.tx.shift();
+      const ch = controlChar;
+      if (!ch) return;
+      if (ch.properties && ch.properties.writeWithoutResponse && ch.writeValueWithoutResponse) await ch.writeValueWithoutResponse(frame);
+      else if (ch.writeValueWithResponse) await ch.writeValueWithResponse(frame);
+      else await ch.writeValue(frame);
+    }
+    const fecUserConfig = () => {                       // page 0x37: rider weight (0.01 kg); bike weight, wheel and gearing left invalid
+      const w = Math.round((settings.weight > 0 ? settings.weight : 75) * 100);
+      return [0x37, w & 0xFF, (w >> 8) & 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00];
+    };
+    // Translate the few FTMS commands the app uses
+    async function fecCommand(b) {
+      try {
+        const op = b[0];
+        if (op === 0x00 || op === 0x07) await fecWrite(fecUserConfig());                                       // request control / start: send the rider data
+        else if (op === 0x05) { const q = clamp((b[1] | (b[2] << 8)) * 4, 0, 65534); await fecWrite([0x31, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, q & 0xFF, q >> 8]); }   // target power, 0.25 W
+        else if (op === 0x11) {                                                                                 // simulation: grade (0.01 %, offset -200 %) and rolling resistance
+          let g = (b[3] | (b[4] << 8)); if (g > 32767) g -= 65536;
+          const raw = clamp(g + 20000, 0, 40000), crr = clamp(Math.round(b[5] * 2), 0, 254);
+          await fecWrite([0x33, 0xFF, 0xFF, 0xFF, 0xFF, raw & 0xFF, raw >> 8, crr]);
+        }
+        else if (op === 0x08) await fecWrite([0x30, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00]);               // pause / stop: release the resistance
+        return 1;
+      } catch (err) {
+        console.warn('FE-C write failed:', err);
+        return null;
+      }
+    }
+    function onFecData(e) {
+      const v = e.target.value;
+      for (let i = 0; i < v.byteLength; i++) fecRxBuf.push(v.getUint8(i));
+      if (fecRxBuf.length > 200) fecRxBuf = fecRxBuf.slice(-60);
+      let any = false;
+      for (;;) {
+        const at = fecRxBuf.indexOf(0xA4);
+        if (at < 0) { fecRxBuf = []; break; }
+        if (at > 0) fecRxBuf = fecRxBuf.slice(at);
+        if (fecRxBuf.length < 2) break;
+        const total = fecRxBuf[1] + 4;
+        if (total < 6 || total > 40) { fecRxBuf.shift(); continue; }
+        if (fecRxBuf.length < total) break;
+        const m = fecRxBuf.slice(0, total);
+        fecRxBuf = fecRxBuf.slice(total);
+        let c = 0; for (let i = 0; i < total - 1; i++) c ^= m[i];
+        if (c !== m[total - 1]) { feInfo.bad++; continue; }
+        if ((m[2] !== 0x4E && m[2] !== 0x4F) || total < 13) continue;            // broadcast / acknowledged data only
+        const d = m.slice(4, 12);
+        feInfo.rx[d[0]] = (feInfo.rx[d[0]] || 0) + 1; feInfo.last[d[0]] = hex(d);
+        if (d[0] === 0x10) { if (d[6] !== 0xFF && d[6] > 0) trainerHR = d[6]; any = true; }                    // general data: heart rate
+        else if (d[0] === 0x19) {                                                                             // trainer data: cadence, power
+          if (d[2] !== 0xFF) { liveCadence = d[2]; cadenceSeen = true; }
+          const pw = d[5] | ((d[6] & 0x0F) << 8);
+          if (pw !== 0xFFF) pushTrainerPower(pw);
+          any = true;
+        }
+      }
+      if (any) { updateDisplay(); if (autoPaused && !running) autoResumeCheck(); }
     }
 
     // Smooth transitions: ease the commanded watts toward a new target instead of jumping
@@ -1541,17 +1622,50 @@
       $('subHR').textContent = (settings.maxHR && hr) ? `Z${hrZoneOf(hr, settings.maxHR)} · ${Math.round(hr / settings.maxHR * 100)}% of max` : '';
     }
 
+    let pairStep = '';                                     // where a failed pairing stopped (shown in the error and the debug info)
+    const propsOf = (c) => { const k = Object.keys(c.properties || {}).filter(x => c.properties[x]); return k.length ? k.join('+') : 'unknown'; };
+    const canNotify = (c) => !!(c.properties && (c.properties.notify || c.properties.indicate));
+    const canWrite = (c) => !!(c.properties && (c.properties.write || c.properties.writeWithoutResponse));
     async function setupTrainer(server) {
-      const svc = await server.getPrimaryService(FTMS_SERVICE);
-      bikeChar = await svc.getCharacteristic(FTMS_BIKE_DATA);
-      controlChar = await svc.getCharacteristic(FTMS_CONTROL_POINT);
+      let ftms = null;
+      pairStep = 'looking for the trainer service';
+      try { ftms = await server.getPrimaryService(FTMS_SERVICE); } catch (e) { if (e.name !== 'NotFoundError') throw e; }
+      if (!ftms) {                                         // no FTMS: try ANT+ FE-C over Bluetooth (throws NotFoundError if the device has neither)
+        pairStep = 'FE-C: finding the service';
+        const fec = await server.getPrimaryService(FEC_SERVICE);
+        pairStep = 'FE-C: reading the characteristics';
+        const a = await fec.getCharacteristic(FEC_TX);
+        const b = await fec.getCharacteristic(FEC_RX);
+        feInfo.props = `${shortUuid(a.uuid || '?').slice(0, 8)} ${propsOf(a)} · ${shortUuid(b.uuid || '?').slice(0, 8)} ${propsOf(b)}`;
+        let tx = a, rx = b;
+        if (!canNotify(b) && canNotify(a) && (canWrite(b) || !b.properties)) { tx = b; rx = a; }   // roles swapped on this trainer
+        if (rx.properties && !canNotify(rx)) throw new Error('the trainer offers no data notifications on the FE-C channel (' + feInfo.props + ')');
+        fecRxBuf = [];
+        pairStep = 'FE-C: starting data notifications';
+        rx.addEventListener('characteristicvaluechanged', onFecData);
+        await rx.startNotifications();
+        pairStep = 'FE-C: sending rider data';
+        trainerProto = 'fec'; controlChar = tx; bikeChar = rx;
+        await cpSend([0x00]);                              // rider data
+        pairStep = '';
+        setStatus('');
+        return;
+      }
+      trainerProto = 'ftms';
+      pairStep = 'FTMS: reading the characteristics';
+      bikeChar = await ftms.getCharacteristic(FTMS_BIKE_DATA);
+      controlChar = await ftms.getCharacteristic(FTMS_CONTROL_POINT);
 
+      pairStep = 'FTMS: control point notifications';
       controlChar.addEventListener('characteristicvaluechanged', onControlResponse);
       await controlChar.startNotifications();          // control point replies arrive as indications
+      pairStep = 'FTMS: data notifications';
       bikeChar.addEventListener('characteristicvaluechanged', onBikeData);
       await bikeChar.startNotifications();
 
+      pairStep = 'FTMS: requesting control';
       const res = await cpSend([0x00]);                // Request Control
+      pairStep = '';
       if (res !== null && res !== 1) setStatus(`Trainer did not grant control (code ${res}). Close other apps using it (Zwift, Elite app...).`);
       else setStatus('');
     }
@@ -1619,10 +1733,10 @@
           ? { acceptAllDevices: true, optionalServices: PROBE_SERVICES }
           : {
               filters: [
-                { services: [FTMS_SERVICE] }, { services: [CYCLING_POWER_SERVICE] },
+                { services: [FTMS_SERVICE] }, { services: [FEC_SERVICE] }, { services: [CYCLING_POWER_SERVICE] },
                 { namePrefix: 'Suito' }, { namePrefix: 'SUITO' },
                 { namePrefix: 'Elite' }, { namePrefix: 'ELITE' },
-                { namePrefix: 'Van Rysel' }, { namePrefix: 'VAN RYSEL' }, { namePrefix: 'Van rysel' }
+                { namePrefix: 'Van Rysel' }, { namePrefix: 'VAN RYSEL' }, { namePrefix: 'Van rysel' }, { namePrefix: 'VANRYSEL' }, { namePrefix: 'VanRysel' }
               ],
               optionalServices: PROBE_SERVICES
             };
@@ -1638,6 +1752,7 @@
         trainerDevice = dev;
         userDisconnect = false;
         dev.addEventListener('gattserverdisconnected', onTrainerDisconnected);
+        pairStep = 'opening the Bluetooth connection';
         const server = await dev.gatt.connect();
         await setupTrainer(server);
         $('trainerHelp').hidden = true;
@@ -1647,13 +1762,14 @@
         console.error('Trainer connection error:', err);
         const noCtl = err.name === 'NotFoundError';
         dev.removeEventListener('gattserverdisconnected', onTrainerDisconnected);   // no auto-reconnect to this device
-        if (noCtl) lastPairReport = `${dev.name || 'unnamed'} offered:\n` + await describeDevice(dev);
+        const where = pairStep || 'connecting';
+        lastPairReport = `${dev.name || 'unnamed'}: ${noCtl ? 'no usable trainer control' : 'failed'} while ${where}: ${err.name}: ${err.message}` + (feInfo.props ? `\nFE-C characteristics: ${feInfo.props}` : '') + '\nOffers:\n' + await describeDevice(dev);
         try { if (dev.gatt.connected) dev.gatt.disconnect(); } catch (e) { /* ignore */ }
         trainerDevice = null; controlChar = null; bikeChar = null;
         setTrainerUI(false);
         setStatus(noCtl
-          ? `"${dev.name || 'This device'}" does not offer the trainer control (FTMS) that ERG needs. If it is a power meter, use "Add power meter" instead. Otherwise open About, press Copy debug info and send it to the contact address: it lists what this device offers.`
-          : 'Trainer connection failed: ' + err.message);
+          ? `"${dev.name || 'This device'}" does not offer a trainer control the app can use (FTMS or FE-C), which ERG needs. If it is a power meter, use "Add power meter" instead. Otherwise open About, press Copy debug info and send it to the contact address: it lists what this device offers.`
+          : `Trainer connection failed while ${where}: ${err.name}: ${err.message}. Open About, press Copy debug info and send it to the contact address.`);
       }
     }
     $('btnConnectTrainer').addEventListener('click', () => pairTrainer(false));
@@ -3229,6 +3345,9 @@
         `Browser: ${navigator.userAgent}`,
         `Secure page: ${window.isSecureContext ? 'yes' : 'no'} · Bluetooth: ${navigator.bluetooth ? 'yes' : 'no'} · Wake lock: ${'wakeLock' in navigator ? 'yes' : 'no'} · Speech: ${'speechSynthesis' in window ? 'yes' : 'no'}`,
         `Trainer: ${dev(trainerDevice)} · Power meter: ${dev(pmDevice)} · HR strap: ${dev(hrDevice)}`,
+        `Trainer protocol: ${trainerDevice ? (trainerProto === 'fec' ? 'FE-C over Bluetooth' : 'FTMS') : 'none'}`,
+        ...(feInfo.props ? [`FE-C characteristics: ${feInfo.props}`] : []),
+        ...(trainerProto === 'fec' && trainerDevice ? [`FE-C pages received: ${Object.keys(feInfo.rx).map(k => '0x' + Number(k).toString(16) + ' x' + feInfo.rx[k]).join(', ') || 'none'}${feInfo.bad ? ' · bad checksums ' + feInfo.bad : ''}`, `FE-C last sent: ${feInfo.tx.slice(-3).join(' | ') || 'nothing'}`, `FE-C last received: ${Object.keys(feInfo.last).map(k => feInfo.last[k]).join(' | ') || 'nothing'}`] : []),
         `Settings: FTP ${settings.ftp} W, units ${settings.units}, smooth ${settings.smooth}, auto-pause ${settings.autoPause ? 'on' : 'off'}, max effort grade ${settings.maxGrade}%`,
         `Mode: ${mode}, ride ${sessionStart ? (finished ? 'finished' : running ? 'running' : 'paused') : 'not started'}, cadence reported: ${cadenceSeen ? 'yes' : 'no'}`,
         `Stored data: ${Math.round(used / 1024)} KB, history entries ${loadHistory().length}`,
@@ -3431,6 +3550,10 @@
           ? 'Bluetooth needs a secure page. Open this app from its https address.'
           : 'This browser has no Bluetooth support. Use Chrome or Edge on desktop or Android (on iPhone or iPad: the Bluefy browser). You can still build workouts and export them.';
         ['btnConnectTrainer', 'btnConnectHR', 'btnConnectPM'].forEach(id => { $(id).disabled = true; });
+      } else if (!/^https?:$/.test(location.protocol)) {      // opened from a downloaded file instead of the web address
+        const w = $('btWarn');
+        w.hidden = false;
+        w.textContent = 'This copy was opened from a file on the device. Bluetooth works best from the web address: ' + SITE_URL;
       }
       const cur = store.get(CURRENT_KEY, null);
       const w = cur ? normalizeWorkout(cur.items) : null;

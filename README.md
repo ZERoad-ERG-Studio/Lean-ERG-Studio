@@ -2,11 +2,11 @@
 
 **Zero fluff // max effort.**
 
-Version 1.0.4 &middot; 15 November 2026
+Version 1.1.1 &middot; 15 November 2026
 
 A smart-trainer workout app in a single HTML file. Pair your trainer over Bluetooth, build or import a workout, and ride it in ERG mode. No accounts, no tracking, no server: your rides stay on your device.
 
-> Developed and tested with an Elite Suito-T trainer, a Quarq crank power meter and a Bluetooth heart-rate strap. Other FTMS trainers and Bluetooth power meters should work, but are untested. ZEROAD is not affiliated with any brand named here.
+> Developed and tested with an Elite Suito-T trainer, a Quarq crank power meter and a Bluetooth heart-rate strap. Other trainers that speak FTMS or FE-C over Bluetooth (for example Van Rysel) and Bluetooth power meters should work, but are less tested. FE-C support is new in 1.1.0. ZEROAD is not affiliated with any brand named here.
 
 **Open the app:** https://zeroad-erg-studio.github.io/Lean-ERG-Studio/
 
@@ -99,7 +99,7 @@ Contact: zero.fluff.fuel@gmail.com · Support the project: https://buymeacoffee.
 
 ## Technical
 
-Single-file vanilla JavaScript, no dependencies and no build step. Bluetooth profiles used: Fitness Machine (FTMS), Cycling Power, Heart Rate.
+Single-file vanilla JavaScript, no dependencies and no build step. Bluetooth profiles used: Fitness Machine (FTMS) or ANT+ FE-C over Bluetooth for trainer control, Cycling Power, Heart Rate.
 
 ## Licence and fonts
 
