@@ -13,7 +13,7 @@ A smart-trainer workout app in a single HTML file. Pair your trainer over Blueto
 **Riding**
 - **ERG mode**: the trainer holds the target power of the current interval.
 - **SIM mode**: free ride with an adjustable grade.
-- **Power meter as the reference**: pair a Bluetooth power meter and ERG steers the trainer until *the meter* shows the target power. The meter's watts are what you see, log and export. No calibration factor is stored. If the meter signal drops, the app falls back to the trainer's reading and holds the last adjustment.
+- **Optional separate power meter as the reference**: the trainer measures power itself, so you can ride with the trainer alone. If you also have a Bluetooth power meter (crank, pedals, hub), add it and ERG steers the trainer until *the meter* shows the target power. The meter's watts are what you see, log and export. No calibration factor is stored. If the meter signal drops, the app falls back to the trainer's reading and holds the last adjustment.
 - **Max effort steps**: an all-out interval with no target power. The trainer gives a fixed low resistance (set in Settings), and the summary shows your peak power for the effort.
 - **Cadence ranges** in intervals (for example 90-100 rpm), with a clear cue when you are outside the range.
 - **Auto-pause** (optional): the timer stops after 5 seconds without pedalling and resumes when you pedal again.
@@ -52,7 +52,7 @@ A smart-trainer workout app in a single HTML file. Pair your trainer over Blueto
 ## Getting started
 
 1. Open the app from an **https** address. Web Bluetooth only works on secure pages.
-2. Press **Pair trainer** and pick your trainer. Optionally pair a power meter and a heart-rate strap.
+2. Press **Pair trainer** and pick your trainer. If it is not in the list, press **Show all devices** and pick it by name. Optionally add a heart-rate strap and, if you own one, a separate power meter.
 3. Open **Settings** and enter your FTP, then pick a starter workout or build your own and press **Start session**.
 
 ### Browser support

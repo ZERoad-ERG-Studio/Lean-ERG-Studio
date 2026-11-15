@@ -222,13 +222,17 @@
     <div class="btn-group">
       <button id="btnConnectTrainer" class="primary">Pair trainer</button>
       <button id="btnConnectHR">Pair HR strap</button>
-      <button id="btnConnectPM" title="Use your bike's Bluetooth power meter as the power source for ERG, display and recording">Pair power meter</button>
+      <button id="btnConnectPM" title="Optional. Only if you have a separate Bluetooth power meter (pedals, crank, hub): it becomes the power source for ERG, display and recording. Not needed when the trainer measures power itself.">Add power meter (optional)</button>
       <button id="btnDisconnect" disabled title="Disconnect the trainer, the power meter and the HR strap">Disconnect all</button>
       <button id="btnSettings">Settings</button>
       <button id="btnAbout">About</button>
     </div>
   </header>
   <div id="btWarn" class="warn" hidden></div>
+  <div id="trainerHelp" class="warn" hidden>
+    <div>Trainer not in the list? Some trainers do not announce themselves clearly. Show every nearby Bluetooth device and pick yours by name.</div>
+    <div class="btn-group" style="margin-top:0.6rem;"><button id="btnTrainerAll">Show all devices</button></div>
+  </div>
   <div id="resumeBar" class="warn" hidden>
     <div id="resumeText"></div>
     <div class="btn-group" style="margin-top:0.6rem;">
@@ -240,7 +244,7 @@
   <section id="welcome" class="panel" hidden>
     <h2>Welcome</h2>
     <ol class="steps">
-      <li>Press <b>Pair trainer</b>. Add a power meter and a heart-rate strap if you have them.</li>
+      <li>Press <b>Pair trainer</b>. Add a heart-rate strap, and a separate power meter if you have one.</li>
       <li>Open <b>Settings</b> and enter your FTP.</li>
       <li>Pick a workout from the library at the bottom, or build your own, then press <b>Start session</b>.</li>
     </ol>
@@ -523,13 +527,15 @@
       <section class="set-group legal">
         <h3 style="color:var(--ink)">Help</h3>
         <p><b>Keys:</b> Space start / pause &middot; Up / Down nudge the target (grade in SIM) while riding &middot; Right skip the interval &middot; Ctrl+Z / Ctrl+Y undo / redo.</p>
-        <p><b>Power meter:</b> with a power meter paired, ERG follows the meter. About once a second the app fine-tunes the target it sends the trainer until the meter shows the target power. After a big step (for example 180 to 240 W) it can take up to about 15 seconds to settle. No calibration is stored. If the meter signal drops, the app shows the trainer's reading and holds the last adjustment.</p>
+        <p><b>Trainer:</b> press Pair trainer and pick your trainer. If it is not listed, press Show all devices. The trainer measures power itself, so a separate power meter is optional.</p>
+        <p><b>Power meter (optional):</b> with a separate power meter paired, ERG follows the meter. About once a second the app fine-tunes the target it sends the trainer until the meter shows the target power. After a big step (for example 180 to 240 W) it can take up to about 15 seconds to settle. No calibration is stored. If the meter signal drops, the app shows the trainer's reading and holds the last adjustment.</p>
         <p><b>Speed and distance:</b> calculated from your power (rider weight from Settings plus a 9 kg bike, a normal riding position, flat road in ERG, the set grade in SIM). It is an estimate: the trainer's own speed is not used, because it follows your cadence, not your power.</p>
         <p><b>Trainer check:</b> History &rarr; Trainer check compares the trainer's own reading with your power meter across your rides.</p>
       </section>
 
       <section class="set-group legal">
         <h3 style="color:var(--ink)">What's new</h3>
+        <p><b>1.0.2</b> &middot; Pairing finds more trainers (for example Van Rysel), checks that the chosen device can really be controlled and says so if not. "Show all devices" as a fallback. The power meter button is now optional and says so.</p>
         <p><b>1.0.1</b> &middot; Speed and distance are now calculated from power, so an easy ride no longer shows 40 km/h.</p>
         <p><b>1.0.0</b> &middot; Settings window with units, auto-pause, spoken cues and backup / restore. Max effort steps and cadence ranges. Starter workouts and FTP tests. Heart-rate zones. Send to Strava. Trainer check. Restore an interrupted ride. Full-screen mode.</p>
       </section>
@@ -612,7 +618,7 @@
     }
 
     // ───────────────────────── Settings ─────────────────────────
-    const APP_VERSION = '1.0.1', APP_DATE = '2026-11-12';
+    const APP_VERSION = '1.0.2', APP_DATE = '2026-11-15';
     const CONTACT_EMAIL = 'zero.fluff.fuel@gmail.com';
     const SITE_URL = 'https://zeroad-erg-studio.github.io/Lean-ERG-Studio/';
     const SUPPORT_URL = 'https://buymeacoffee.com/zero.fluff.fuel';   // "Buy me a coffee" link shown in About (leave empty to hide it)
@@ -1577,27 +1583,53 @@
       if (!userDisconnect) setTrainerUI(false, 'Trainer lost (pair again)');
     }
 
-    $('btnConnectTrainer').addEventListener('click', async () => {
+    // Many trainers do not advertise the trainer-control service (FTMS) in their Bluetooth announcement,
+    // only the power service or just a name. So the list accepts any of those, and the app checks for
+    // real trainer control after connecting. "Show all devices" is the fallback for anything else.
+    async function pairTrainer(showAll) {
+      let dev = null;
       try {
-        trainerDevice = await navigator.bluetooth.requestDevice({
-          filters: [
-            { services: [FTMS_SERVICE] },
-            { namePrefix: 'Suito' }, { namePrefix: 'SUITO' },
-            { namePrefix: 'Elite' }, { namePrefix: 'ELITE' }
-          ],
-          optionalServices: [FTMS_SERVICE]
-        });
+        const opts = showAll
+          ? { acceptAllDevices: true, optionalServices: [FTMS_SERVICE] }
+          : {
+              filters: [
+                { services: [FTMS_SERVICE] }, { services: [CYCLING_POWER_SERVICE] },
+                { namePrefix: 'Suito' }, { namePrefix: 'SUITO' },
+                { namePrefix: 'Elite' }, { namePrefix: 'ELITE' },
+                { namePrefix: 'Van Rysel' }, { namePrefix: 'VAN RYSEL' }, { namePrefix: 'Van rysel' }
+              ],
+              optionalServices: [FTMS_SERVICE]
+            };
+        dev = await navigator.bluetooth.requestDevice(opts);
+      } catch (err) {
+        if (err.name === 'NotFoundError') { $('trainerHelp').hidden = showAll; }   // list empty or cancelled: offer "Show all devices"
+        else { console.error('Trainer connection error:', err); setStatus('Trainer connection failed: ' + err.message); }
+        return;
+      }
+      if (pmDevice && dev.id === pmDevice.id) { notice('That device is already paired as the power meter. Press Disconnect all, then pair it as the trainer.'); return; }
+      try {
+        trainerDevice = dev;
         userDisconnect = false;
-        trainerDevice.addEventListener('gattserverdisconnected', onTrainerDisconnected);
-        const server = await trainerDevice.gatt.connect();
+        dev.addEventListener('gattserverdisconnected', onTrainerDisconnected);
+        const server = await dev.gatt.connect();
         await setupTrainer(server);
+        $('trainerHelp').hidden = true;
         setTrainerUI(true);
         updateTargetDisplay();
       } catch (err) {
         console.error('Trainer connection error:', err);
-        if (err.name !== 'NotFoundError') setStatus('Trainer connection failed: ' + err.message);
+        const noCtl = err.name === 'NotFoundError';
+        dev.removeEventListener('gattserverdisconnected', onTrainerDisconnected);   // no auto-reconnect to this device
+        try { if (dev.gatt.connected) dev.gatt.disconnect(); } catch (e) { /* ignore */ }
+        trainerDevice = null; controlChar = null; bikeChar = null;
+        setTrainerUI(false);
+        setStatus(noCtl
+          ? `"${dev.name || 'This device'}" does not offer trainer control (FTMS), so ERG cannot run on it. If it is a power meter, use "Add power meter" instead.`
+          : 'Trainer connection failed: ' + err.message);
       }
-    });
+    }
+    $('btnConnectTrainer').addEventListener('click', () => pairTrainer(false));
+    $('btnTrainerAll').addEventListener('click', () => pairTrainer(true));
 
     $('btnConnectHR').addEventListener('click', async () => {
       try {
@@ -1647,7 +1679,7 @@
     }
     function setPmUI(connected, label) {
       const btn = $('btnConnectPM');
-      btn.textContent = label || (connected ? 'Power meter connected' : 'Pair power meter');
+      btn.textContent = label || (connected ? 'Power meter connected' : 'Add power meter (optional)');
       btn.classList.toggle('connected', connected);
       updateDisconnectBtn();
     }
@@ -1667,12 +1699,18 @@
       if (!userDisconnect) setPmUI(false, 'Power meter lost (pair again)');
     }
     $('btnConnectPM').addEventListener('click', async () => {
+      let dev = null;
       try {
-        const dev = await navigator.bluetooth.requestDevice({
+        dev = await navigator.bluetooth.requestDevice({
           filters: [{ services: [CYCLING_POWER_SERVICE] }, { namePrefix: 'Quarq' }, { namePrefix: 'QUARQ' }],
           optionalServices: [CYCLING_POWER_SERVICE]
         });
-        if (trainerDevice && dev.id === trainerDevice.id) { notice('That is the trainer. Pick your power meter.'); return; }
+      } catch (err) {
+        if (err.name !== 'NotFoundError') { console.error('Power meter connection error:', err); setStatus('Power meter connection failed: ' + err.message); }
+        return;
+      }
+      if (trainerDevice && dev.id === trainerDevice.id) { notice('That is the trainer, which is already paired. Pick a separate power meter, or just ride with the trainer alone.'); return; }
+      try {
         pmDevice = dev;
         userDisconnect = false;
         pmDevice.addEventListener('gattserverdisconnected', onPmDisconnected);
@@ -1680,11 +1718,16 @@
         await setupPm(server);
         trim = 0; trimHoldUntil = performance.now() + 4000;
         setPmUI(true);
+        if (!(trainerDevice && trainerDevice.gatt && trainerDevice.gatt.connected)) setStatus('Power meter paired. Pair your trainer to start a session: the trainer is what the app controls.');
         updateDisplay();
         updateTargetDisplay();
       } catch (err) {
         console.error('Power meter connection error:', err);
-        if (err.name !== 'NotFoundError') setStatus('Power meter connection failed: ' + err.message);
+        pmDevice.removeEventListener('gattserverdisconnected', onPmDisconnected);
+        try { if (pmDevice.gatt.connected) pmDevice.gatt.disconnect(); } catch (e) { /* ignore */ }
+        pmDevice = null; pmChar = null;
+        setPmUI(false);
+        setStatus(err.name === 'NotFoundError' ? 'That device sends no power data, so it cannot be used as a power meter.' : 'Power meter connection failed: ' + err.message);
       }
     });
 
@@ -1709,6 +1752,7 @@
       updateDisplay();
       updateDisconnectBtn();
       setStatus('');
+      $('trainerHelp').hidden = true;
     }
 
     // ───────────────────────── Wake lock, sound & cues ─────────────────────────
