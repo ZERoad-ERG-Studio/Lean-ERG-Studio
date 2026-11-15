@@ -115,6 +115,8 @@
     #planStats { color: var(--muted); font-size: 12px; }
 
     .in { font: 700 13px var(--mono); background: transparent; color: var(--ink); border: 1px solid var(--ink); padding: 0.45rem 0.5rem; min-width: 0; }
+    select.in, select { background-color: var(--bg); }
+    select option, select optgroup { background-color: var(--bg); color: var(--ink); }   /* dark mode: the open list must not be see-through */
     .in::placeholder { color: var(--muted); font-weight: 400; }
     .in:disabled { opacity: 0.5; }
     .add-row .in { width: 80px; }
@@ -535,6 +537,7 @@
 
       <section class="set-group legal">
         <h3 style="color:var(--ink)">What's new</h3>
+        <p><b>1.0.4</b> &middot; Dark mode: the options in drop-down menus are now readable before you pick one.</p>
         <p><b>1.0.3</b> &middot; Fixed a pairing bug: after "Disconnect all" a device that had been paired as the power meter could not be paired as the trainer. When a device cannot be used as a trainer, the debug info now lists what it offers.</p>
         <p><b>1.0.2</b> &middot; Pairing finds more trainers (for example Van Rysel), checks that the chosen device can really be controlled and says so if not. "Show all devices" as a fallback. The power meter button is now optional and says so.</p>
         <p><b>1.0.1</b> &middot; Speed and distance are now calculated from power, so an easy ride no longer shows 40 km/h.</p>
@@ -619,7 +622,7 @@
     }
 
     // ───────────────────────── Settings ─────────────────────────
-    const APP_VERSION = '1.0.3', APP_DATE = '2026-11-15';
+    const APP_VERSION = '1.0.4', APP_DATE = '2026-11-15';
     const CONTACT_EMAIL = 'zero.fluff.fuel@gmail.com';
     const SITE_URL = 'https://zeroad-erg-studio.github.io/Lean-ERG-Studio/';
     const SUPPORT_URL = 'https://buymeacoffee.com/zero.fluff.fuel';   // "Buy me a coffee" link shown in About (leave empty to hide it)
