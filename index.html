@@ -538,6 +538,7 @@
 
       <section class="set-group legal">
         <h3 style="color:var(--ink)">What's new</h3>
+        <p><b>1.1.2</b> &middot; Pairing tries a second time by itself if the first attempt fails (some phones need that), switching the trainer's data channels on in the other order. If a trainer still refuses its live-data channel, power and cadence are taken from its cycling power service while the trainer is still controlled as usual.</p>
         <p><b>1.1.1</b> &middot; Pairing errors now say at which step they happened and the debug info lists the trainer's characteristics. The FE-C setup also copes with trainers that swap the send and receive characteristics. A hint appears when the app is opened from a file instead of the web address. The session and interval times no longer run into each other in full screen once a ride is over an hour.</p>
         <p><b>1.1.0</b> &middot; Trainers that use FE-C over Bluetooth instead of FTMS (for example Van Rysel) can now be paired and controlled. The app picks the right protocol by itself. New and not yet tested on many trainers: please report problems.</p>
         <p><b>1.0.4</b> &middot; Dark mode: the options in drop-down menus are now readable before you pick one.</p>
@@ -626,7 +627,7 @@
     }
 
     // ───────────────────────── Settings ─────────────────────────
-    const APP_VERSION = '1.1.1', APP_DATE = '2026-11-15';
+    const APP_VERSION = '1.1.2', APP_DATE = '2026-11-16';
     const CONTACT_EMAIL = 'zero.fluff.fuel@gmail.com';
     const SITE_URL = 'https://zeroad-erg-studio.github.io/Lean-ERG-Studio/';
     const SUPPORT_URL = 'https://buymeacoffee.com/zero.fluff.fuel';   // "Buy me a coffee" link shown in About (leave empty to hide it)
@@ -1558,6 +1559,30 @@
       if (autoPaused && !running) autoResumeCheck();
     }
 
+    // Fallback when a trainer refuses its FTMS live-data channel: power and cadence from its Cycling Power service instead
+    let trainerCpsFallback = false, cpsCrank = null;
+    function onTrainerCps(e) {
+      const v = e.target.value;
+      if (v.byteLength < 4) return;
+      const f = v.getUint16(0, true);
+      pushTrainerPower(Math.max(0, v.getInt16(2, true)));
+      let o = 4;
+      if (f & 0x0001) o += 1;                                   // pedal power balance
+      if (f & 0x0004) o += 2;                                   // accumulated torque
+      if (f & 0x0010) o += 6;                                   // wheel revolution data
+      if ((f & 0x0020) && o + 4 <= v.byteLength) {             // crank revolution data: cumulative revolutions + last event time (1/1024 s)
+        const revs = v.getUint16(o, true), t = v.getUint16(o + 2, true), now = performance.now();
+        if (!cpsCrank) cpsCrank = { revs, time: t, at: now };
+        else {
+          const dr = (revs - cpsCrank.revs + 65536) % 65536, dt = (t - cpsCrank.time + 65536) % 65536;
+          if (dr > 0 && dt > 0) { liveCadence = Math.min(250, Math.round(dr / (dt / 1024) * 60)); cadenceSeen = true; cpsCrank = { revs, time: t, at: now }; }
+          else if (now - cpsCrank.at > 2500) { liveCadence = 0; cadenceSeen = true; }   // no crank event for 2.5 s: not pedalling
+        }
+      }
+      updateDisplay();
+      if (autoPaused && !running) autoResumeCheck();
+    }
+
     // Power sources: the trainer's own reading and, when paired, a Bluetooth power meter (which then takes priority)
     const PM_STALE_MS = 3000;
     function pushWindow(buf, p) {
@@ -1626,8 +1651,9 @@
     const propsOf = (c) => { const k = Object.keys(c.properties || {}).filter(x => c.properties[x]); return k.length ? k.join('+') : 'unknown'; };
     const canNotify = (c) => !!(c.properties && (c.properties.notify || c.properties.indicate));
     const canWrite = (c) => !!(c.properties && (c.properties.write || c.properties.writeWithoutResponse));
-    async function setupTrainer(server) {
+    async function setupTrainer(server, alt) {
       let ftms = null;
+      trainerCpsFallback = false; cpsCrank = null;
       pairStep = 'looking for the trainer service';
       try { ftms = await server.getPrimaryService(FTMS_SERVICE); } catch (e) { if (e.name !== 'NotFoundError') throw e; }
       if (!ftms) {                                         // no FTMS: try ANT+ FE-C over Bluetooth (throws NotFoundError if the device has neither)
@@ -1655,13 +1681,32 @@
       pairStep = 'FTMS: reading the characteristics';
       bikeChar = await ftms.getCharacteristic(FTMS_BIKE_DATA);
       controlChar = await ftms.getCharacteristic(FTMS_CONTROL_POINT);
-
-      pairStep = 'FTMS: control point notifications';
-      controlChar.addEventListener('characteristicvaluechanged', onControlResponse);
-      await controlChar.startNotifications();          // control point replies arrive as indications
-      pairStep = 'FTMS: data notifications';
-      bikeChar.addEventListener('characteristicvaluechanged', onBikeData);
-      await bikeChar.startNotifications();
+      const enableControl = async () => {
+        pairStep = 'FTMS: control point notifications';
+        controlChar.addEventListener('characteristicvaluechanged', onControlResponse);
+        await controlChar.startNotifications();          // control point replies arrive as indications
+      };
+      const enableData = async () => {
+        pairStep = 'FTMS: data notifications';
+        bikeChar.addEventListener('characteristicvaluechanged', onBikeData);
+        await bikeChar.startNotifications();
+      };
+      if (!alt) { await enableControl(); await enableData(); }
+      else {                                               // second attempt: data channel first, and a fallback if it is still refused
+        try { await enableData(); }
+        catch (err) {
+          if (err.name === 'NotFoundError') throw err;
+          pairStep = 'FTMS: data notifications refused, trying the cycling power service';
+          try {
+            const cps = await server.getPrimaryService(CYCLING_POWER_SERVICE);
+            const ch = await cps.getCharacteristic(CYCLING_POWER_MEASUREMENT);
+            ch.addEventListener('characteristicvaluechanged', onTrainerCps);
+            await ch.startNotifications();
+          } catch (e2) { console.warn('Cycling power fallback failed:', e2); throw err; }
+          trainerCpsFallback = true;
+        }
+        await enableControl();
+      }
 
       pairStep = 'FTMS: requesting control';
       const res = await cpSend([0x00]);                // Request Control
@@ -1692,7 +1737,7 @@
         await sleep(1500 * (i + 1));
         try {
           const server = await trainerDevice.gatt.connect();
-          await setupTrainer(server);
+          await setupTrainer(server, i % 2 === 1);
           setTrainerUI(true);
           if (running) { softStart = true; lastDesired = null; await cpSend([0x07]); applyTarget(true); }
           return;
@@ -1707,7 +1752,7 @@
     const SERVICE_NAMES = { '0x1826': 'FTMS trainer control', '0x1818': 'cycling power', '0x1816': 'speed and cadence', '0x180d': 'heart rate', '0x180a': 'device info', '0x180f': 'battery',
       '6e40fec1-b5a3-f393-e0a9-e50e24dcca9e': 'FE-C over Bluetooth', 'a026ee01-0a7d-4ab3-97fa-f1500f9feb8b': 'Wahoo', 'a026ee0b-0a7d-4ab3-97fa-f1500f9feb8b': 'Wahoo control' };
     const PROBE_SERVICES = [0x1826, 0x1818, 0x1816, 0x180D, 0x180A, 0x180F, '6e40fec1-b5a3-f393-e0a9-e50e24dcca9e', 'a026ee01-0a7d-4ab3-97fa-f1500f9feb8b', 'a026ee0b-0a7d-4ab3-97fa-f1500f9feb8b'];
-    let lastPairReport = '';
+    let lastPairReport = '', lastPairNote = '';
     const shortUuid = (u) => { const m = /^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/i.exec(u); return m ? '0x' + m[1] : u; };
     // Lists the services (and their characteristics) a device offers, so a trainer that cannot be used can be diagnosed.
     async function describeDevice(dev) {
@@ -1752,18 +1797,32 @@
         trainerDevice = dev;
         userDisconnect = false;
         dev.addEventListener('gattserverdisconnected', onTrainerDisconnected);
+        lastPairNote = '';
         pairStep = 'opening the Bluetooth connection';
-        const server = await dev.gatt.connect();
-        await setupTrainer(server);
+        try {
+          await setupTrainer(await dev.gatt.connect(), false);
+        } catch (first) {
+          if (first.name === 'NotFoundError') throw first;
+          lastPairNote = `first attempt failed while ${pairStep || 'connecting'}: ${first.name}: ${first.message}`;
+          pairStep = 'waiting to retry';
+          dev.removeEventListener('gattserverdisconnected', onTrainerDisconnected);     // an intended disconnect, no reconnect loop
+          try { if (dev.gatt.connected) dev.gatt.disconnect(); } catch (e) { /* ignore */ }
+          await sleep(1000);
+          dev.addEventListener('gattserverdisconnected', onTrainerDisconnected);
+          pairStep = 'opening the Bluetooth connection (second attempt)';
+          await setupTrainer(await dev.gatt.connect(), true);
+          lastPairNote += '; worked on the second attempt' + (trainerCpsFallback ? ', with power and cadence from the cycling power service' : '');
+        }
         $('trainerHelp').hidden = true;
         setTrainerUI(true);
         updateTargetDisplay();
+        if (trainerCpsFallback) notice('Connected. This trainer refused its live-data channel, so power and cadence come from its cycling power service. Control works as usual.');
       } catch (err) {
         console.error('Trainer connection error:', err);
         const noCtl = err.name === 'NotFoundError';
         dev.removeEventListener('gattserverdisconnected', onTrainerDisconnected);   // no auto-reconnect to this device
         const where = pairStep || 'connecting';
-        lastPairReport = `${dev.name || 'unnamed'}: ${noCtl ? 'no usable trainer control' : 'failed'} while ${where}: ${err.name}: ${err.message}` + (feInfo.props ? `\nFE-C characteristics: ${feInfo.props}` : '') + '\nOffers:\n' + await describeDevice(dev);
+        lastPairReport = `${dev.name || 'unnamed'}: ${noCtl ? 'no usable trainer control' : 'failed'} while ${where}: ${err.name}: ${err.message}` + (lastPairNote ? `\nEarlier: ${lastPairNote}` : '') + (feInfo.props ? `\nFE-C characteristics: ${feInfo.props}` : '') + '\nOffers:\n' + await describeDevice(dev);
         try { if (dev.gatt.connected) dev.gatt.disconnect(); } catch (e) { /* ignore */ }
         trainerDevice = null; controlChar = null; bikeChar = null;
         setTrainerUI(false);
@@ -3345,7 +3404,8 @@
         `Browser: ${navigator.userAgent}`,
         `Secure page: ${window.isSecureContext ? 'yes' : 'no'} · Bluetooth: ${navigator.bluetooth ? 'yes' : 'no'} · Wake lock: ${'wakeLock' in navigator ? 'yes' : 'no'} · Speech: ${'speechSynthesis' in window ? 'yes' : 'no'}`,
         `Trainer: ${dev(trainerDevice)} · Power meter: ${dev(pmDevice)} · HR strap: ${dev(hrDevice)}`,
-        `Trainer protocol: ${trainerDevice ? (trainerProto === 'fec' ? 'FE-C over Bluetooth' : 'FTMS') : 'none'}`,
+        `Trainer protocol: ${trainerDevice ? (trainerProto === 'fec' ? 'FE-C over Bluetooth' : 'FTMS' + (trainerCpsFallback ? ' (power and cadence from the cycling power service)' : '')) : 'none'}`,
+        `Last connection: ${lastPairNote || 'no problems noted'}`,
         ...(feInfo.props ? [`FE-C characteristics: ${feInfo.props}`] : []),
         ...(trainerProto === 'fec' && trainerDevice ? [`FE-C pages received: ${Object.keys(feInfo.rx).map(k => '0x' + Number(k).toString(16) + ' x' + feInfo.rx[k]).join(', ') || 'none'}${feInfo.bad ? ' · bad checksums ' + feInfo.bad : ''}`, `FE-C last sent: ${feInfo.tx.slice(-3).join(' | ') || 'nothing'}`, `FE-C last received: ${Object.keys(feInfo.last).map(k => feInfo.last[k]).join(' | ') || 'nothing'}`] : []),
         `Settings: FTP ${settings.ftp} W, units ${settings.units}, smooth ${settings.smooth}, auto-pause ${settings.autoPause ? 'on' : 'off'}, max effort grade ${settings.maxGrade}%`,
