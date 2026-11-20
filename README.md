@@ -2,7 +2,7 @@
 
 **Zero fluff // max effort.**
 
-Version 1.1.2 &middot; 16 November 2026
+Version 1.2.0 &middot; 20 November 2026
 
 A smart-trainer workout app in a single HTML file. Pair your trainer over Bluetooth, build or import a workout, and ride it in ERG mode. No accounts, no tracking, no server: your rides stay on your device.
 
@@ -29,7 +29,7 @@ A smart-trainer workout app in a single HTML file. Pair your trainer over Blueto
 - Steady intervals and ramps (for example 5 min rising from 100 W to 200 W).
 - Repeat blocks, undo / redo.
 - Targets in watts or as % of FTP, with power-zone colours (Z1 to Z7).
-- Edit durations, power and cadence directly in the graph or in the planner. Move intervals with arrows or drag and drop.
+- A Workouts window (Choose workout / Edit workout) with its own graph: drag edges to change length or power, drag an interval to move it, separate handles for ramp start and end. The ride screen graph is read-only. Intervals can also be edited in cards and moved with arrows.
 - Starter workouts (endurance, tempo, sweet spot, threshold, VO2 max, sprints) and your own workout library.
 - Import and export: CSV, ZWO, MRC and ERG files.
 - **FTP tests**: a 20-minute test and a ramp test. The app estimates your FTP from the ride and offers to save it.

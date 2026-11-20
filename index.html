@@ -95,6 +95,14 @@
     .hint { font-size: 11px; color: var(--muted); }
     canvas { width: 100%; display: block; background: var(--bg); border: 1px solid var(--soft); }
     #profileCanvas { height: 220px; touch-action: pan-y; }
+    #editCanvas { height: 240px; touch-action: pan-y; width: 100%; display: block; }
+    #libSection, #editSection { scroll-margin-top: 3.5rem; }
+    .wk-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.6rem; }
+    .wk-name { font-weight: 700; }
+    .modal.full { max-width: 1200px; height: 92vh; }
+    .modal-head.sticky { position: sticky; top: -1.25rem; background: var(--bg); z-index: 2; padding: 0.4rem 0; margin-top: -0.4rem; }
+    .modal.full .panel { margin: 0; }
+    @media (max-width: 640px) { #workoutsOverlay { padding: 0; } #workoutsOverlay .modal { max-width: none; height: 100%; max-height: 100%; border: 0; padding: 0.75rem; } #editCanvas { height: 190px; } }
     #sumCanvas { height: 200px; }
 
     #selBar { border: 1px solid var(--ink); padding: 0.6rem; }
@@ -195,7 +203,7 @@
     .zbar { display: block; height: 10px; background: var(--ink); }
     #resumeText { font-weight: 700; }
     ol.steps { padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.3rem; }
-    body.focus > header, body.focus > footer, body.focus > section.panel:not(#tlPanel), body.focus #tlPanel .hint, body.focus #welcome, body.focus #resumeBar, body.focus #selBar { display: none !important; }
+    body.focus > header, body.focus > footer, body.focus > section.panel:not(#tlPanel), body.focus #tlPanel .hint, body.focus #welcome, body.focus #resumeBar, body.focus #tlPanel .wk-row .btn-group { display: none !important; }
     body.focus .val { font-size: 4.6rem; }
     body.focus { max-width: min(1800px, 100%); }
     body.focus .val.time { font-size: clamp(2rem, 6vw, 4.4rem); font-size: clamp(1.4rem, 8.2cqw, 5rem); }
@@ -249,7 +257,7 @@
     <ol class="steps">
       <li>Press <b>Pair trainer</b>. Add a heart-rate strap, and a separate power meter if you have one.</li>
       <li>Open <b>Settings</b> and enter your FTP.</li>
-      <li>Pick a workout from the library at the bottom, or build your own, then press <b>Start session</b>.</li>
+      <li>Press <b>Choose workout</b> to pick one from the library, or <b>Edit workout</b> to build your own, then press <b>Start session</b>.</li>
     </ol>
     <div class="btn-group"><button id="btnWelcomeOk" class="primary">Got it</button></div>
   </section>
@@ -290,7 +298,7 @@
     </div>
   </div>
 
-  <!-- Timeline -->
+  <!-- Timeline (read-only on the ride screen) -->
   <section class="panel" id="tlPanel">
     <div class="tl-head">
       <span id="intervalInfo">Ready to start</span>
@@ -298,8 +306,14 @@
     </div>
     <div class="next" id="nextInfo"></div>
     <canvas id="profileCanvas"></canvas>
-    <div id="selBar" hidden></div>
-    <div class="hint">Click an interval to select and edit it. With a mouse you can also drag its right edge (length) or its top edge (power). Colours show your power zones.</div>
+    <div class="wk-row">
+      <span id="rideWkName" class="wk-name">No workout</span>
+      <span id="planStatsRide" class="muted"></span>
+      <div class="btn-group">
+        <button id="btnChoose" title="Pick a workout from the library or the starter workouts">Choose workout</button>
+        <button id="btnEditWk" title="Open the workout editor">Edit workout</button>
+      </div>
+    </div>
   </section>
 
   <!-- Player + trainer control -->
@@ -326,10 +340,19 @@
     </div>
   </div>
 
+  <footer>
+    <span><b>ZER<sup>O</sup> FAMILY</b> &middot; ZERO FLUFF // MAX EFFORT</span>
+    <span>No accounts. No tracking. Your rides stay on this device.</span>
+  </footer>
+
+  <!-- Workouts window -->
+  <div id="workoutsOverlay" class="overlay" hidden>
+    <div class="modal wide full" id="workoutsModal">
+      <div class="modal-head sticky"><h2>Workouts</h2><button id="btnWkDone" class="primary">Done</button></div>
   <!-- Planner -->
-  <section class="panel">
+  <section class="panel" id="editSection">
     <div class="builder-header">
-      <h2>Programme training session</h2>
+      <h2>Edit workout</h2>
       <div class="btn-group">
         <button id="btnUndo" disabled title="Undo (Ctrl+Z)">Undo</button>
         <button id="btnRedo" disabled title="Redo (Ctrl+Y)">Redo</button>
@@ -340,6 +363,10 @@
         </div>
       </div>
     </div>
+
+    <canvas id="editCanvas"></canvas>
+    <div id="selBar" hidden></div>
+    <div class="hint" id="editHint">Click an interval to select it. With a mouse you can drag its right edge (length), its top edge (power), or its body to move it to another place at the same level. Ramps have a handle at each end; drag the middle to shift the whole ramp. Colours show your power zones.</div>
 
     <div class="add-row">
       <input type="text" id="workoutName" class="in in-wide" style="width:220px" maxlength="60" placeholder="Workout name" aria-label="Workout name">
@@ -368,7 +395,7 @@
   </section>
 
   <!-- Library -->
-  <section class="panel">
+  <section class="panel" id="libSection">
     <div class="builder-header">
       <h2>Workout library</h2>
       <div class="add-row">
@@ -382,10 +409,9 @@
     <div class="lib-list" id="libList"></div>
   </section>
 
-  <footer>
-    <span><b>ZER<sup>O</sup> FAMILY</b> &middot; ZERO FLUFF // MAX EFFORT</span>
-    <span>No accounts. No tracking. Your rides stay on this device.</span>
-  </footer>
+      <div class="btn-group"><button id="btnWkDone2" class="primary">Done</button></div>
+    </div>
+  </div>
 
   <!-- Session summary -->
   <div id="summaryOverlay" class="overlay" hidden>
@@ -460,7 +486,7 @@
       <section class="set-group">
         <h3>Riding</h3>
         <label class="set-row"><span>Smooth transitions</span>
-          <select id="setSmooth" class="in"><option value="0">Off</option><option value="3">3 s</option><option value="5">5 s</option></select>
+          <select id="setSmooth" class="in"><option value="0">Off</option><option value="1">Quick (1 s)</option><option value="3">3 s</option><option value="5">5 s</option></select>
         </label>
         <label class="set-row"><span>Auto-pause when I stop pedalling</span><input type="checkbox" id="setAutoPause"></label>
         <label class="set-row"><span>Max effort resistance (grade %)</span><input type="number" id="setMaxGrade" class="in" min="0" max="10" step="0.5"></label>
@@ -538,6 +564,7 @@
 
       <section class="set-group legal">
         <h3 style="color:var(--ink)">What's new</h3>
+        <p><b>1.2.0</b> &middot; Quicker interval changes: a new "Quick (1 s)" transition is now the default, and the power-meter adjustment waits less after a step, so short intervals such as over-unders are reached sooner with less overshoot. The workout builder, library, starter workouts and file import / export moved into their own Workouts window (Choose workout / Edit workout), with its own graph. In that graph you can drag an interval to move it, and ramps have a handle at each end. The graph on the ride screen is now read-only.</p>
         <p><b>1.1.2</b> &middot; Pairing tries a second time by itself if the first attempt fails (some phones need that), switching the trainer's data channels on in the other order. If a trainer still refuses its live-data channel, power and cadence are taken from its cycling power service while the trainer is still controlled as usual.</p>
         <p><b>1.1.1</b> &middot; Pairing errors now say at which step they happened and the debug info lists the trainer's characteristics. The FE-C setup also copes with trainers that swap the send and receive characteristics. A hint appears when the app is opened from a file instead of the web address. The session and interval times no longer run into each other in full screen once a ride is over an hour.</p>
         <p><b>1.1.0</b> &middot; Trainers that use FE-C over Bluetooth instead of FTMS (for example Van Rysel) can now be paired and controlled. The app picks the right protocol by itself. New and not yet tested on many trainers: please report problems.</p>
@@ -627,11 +654,12 @@
     }
 
     // ───────────────────────── Settings ─────────────────────────
-    const APP_VERSION = '1.1.2', APP_DATE = '2026-11-16';
+    const APP_VERSION = '1.2.0', APP_DATE = '2026-11-20';
     const CONTACT_EMAIL = 'zero.fluff.fuel@gmail.com';
     const SITE_URL = 'https://zeroad-erg-studio.github.io/Lean-ERG-Studio/';
     const SUPPORT_URL = 'https://buymeacoffee.com/zero.fluff.fuel';   // "Buy me a coffee" link shown in About (leave empty to hide it)
-    let settings = Object.assign({ ftp: 200, weight: 0, smooth: 3, sound: true, unit: 'w', units: 'metric', autoPause: false, speech: false, maxHR: 0, maxGrade: 2 }, store.get(SETTINGS_KEY, {}));
+    let settings = Object.assign({ ftp: 200, weight: 0, smooth: 1, smoothVer: 2, sound: true, unit: 'w', units: 'metric', autoPause: false, speech: false, maxHR: 0, maxGrade: 2 }, store.get(SETTINGS_KEY, {}));
+    if ((store.get(SETTINGS_KEY, {}) || {}).smoothVer !== 2) { settings.smooth = 1; settings.smoothVer = 2; }   // 1.2.0: quicker default (the old 3 s was only a default)
     settings.ftp = clamp(Math.round(Number(settings.ftp)) || 200, 50, 600);
     settings.units = settings.units === 'imperial' ? 'imperial' : 'metric';
     settings.maxHR = (settings.maxHR >= 100 && settings.maxHR <= 230) ? Math.round(settings.maxHR) : 0;
@@ -1303,19 +1331,22 @@
       for (let i = 0; i < n; i++) if (series[i] > max) max = series[i];
       return { n, avg: Math.round(pre[n] / n), max: Math.round(max), np, b1: best(60), b5: best(300), kj: Math.round(pre[n] / 1000) };
     }
+    function syncRideName() { $('rideWkName').textContent = workoutName || 'My workout'; }
     function updatePlanStats() {
       const series = [];
       flat.forEach(f => {
         for (let s = 0; s < f.dur; s++) series.push(stepWattsAt(f.step, (s + 0.5) / f.dur));
       });
       const st = seriesStats(series);
-      if (!st) { $('planStats').textContent = 'No steps yet'; return; }
+      syncRideName();
+      if (!st) { $('planStats').textContent = 'No steps yet'; $('planStatsRide').textContent = ''; return; }
       let txt = `${fmt(st.n)} · avg ${st.avg} W`;
       if (st.np) {
         const ifv = st.np / settings.ftp;
         txt += ` · NP ${st.np} W · IF ${ifv.toFixed(2)} · TSS ~${Math.round(st.n * st.np * ifv / (settings.ftp * 3600) * 100)}`;
       }
       $('planStats').textContent = txt;
+      $('planStatsRide').textContent = txt;
     }
 
     // ───────────────────────── Trainer control (FTMS) ─────────────────────────
@@ -1489,7 +1520,7 @@
           trimHoldUntil = now + (settings.smooth > 0 ? Math.max(5, settings.smooth) * 1000 : 0) + 4000;   // let the meter catch up before adjusting
           if (settings.smooth > 0) { smoothFrom = Math.max(40, Math.round(d * 0.5)); smoothStart = now; smoothDur = Math.max(5, settings.smooth); }
         } else if (lastDesired != null && Math.abs(d - lastDesired) >= 15) {
-          trimHoldUntil = now + settings.smooth * 1000 + 4000;
+          trimHoldUntil = now + settings.smooth * 1000 + 3000;   // wait until the 3 s average only holds post-step power
           if (settings.smooth > 0) { smoothFrom = lastCommanded != null ? lastCommanded : lastDesired; smoothStart = now; smoothDur = settings.smooth; }
         }
         lastDesired = d;
@@ -2259,6 +2290,7 @@
     };
     $('workoutName').addEventListener('change', () => {
       workoutName = $('workoutName').value.trim().slice(0, 60) || 'My workout';
+      syncRideName();
       $('workoutName').value = workoutName;
       scheduleSave();
     });
@@ -2436,9 +2468,14 @@
     };
 
     // ───────────────────────── Timeline canvas ─────────────────────────
-    let gLayout = null;
+    // Two views of the same workout: the ride screen (read-only) and the editor in the Workouts window
+    const views = { ride: { id: 'profileCanvas', edit: false, layout: null }, edit: { id: 'editCanvas', edit: true, layout: null } };
     function drawProfile() {
-      const cvs = $('profileCanvas');
+      drawGraph(views.ride);
+      if (!$('workoutsOverlay').hidden) drawGraph(views.edit);
+    }
+    function drawGraph(v) {
+      const cvs = $(v.id);
       const dpr = window.devicePixelRatio || 1;
       const w = cvs.clientWidth, h = cvs.clientHeight;
       if (!w || !h) return;
@@ -2452,9 +2489,9 @@
 
       const total = totalDuration();
       if (!total) {
-        gLayout = null;
+        v.layout = null;
         ctx.fillStyle = colors().muted; ctx.font = CANVAS_FONT;
-        ctx.fillText('Add a step below to build your session', 12, 24);
+        ctx.fillText(v.edit ? 'Add a step below to build your session' : 'No workout yet: press Choose workout or Edit workout', 12, 24);
         return;
       }
       let maxW = Math.max(100, settings.ftp * 1.2);
@@ -2468,7 +2505,7 @@
         const x1 = f.start / total * w, x2 = (f.start + f.dur) / total * w;
         return { idx, x1, x2, ya: yOf(stepStartW(f.step)), yb: yOf(stepEndW(f.step)) };
       });
-      gLayout = { w, h, top, total, maxW, items };
+      v.layout = { w, h, top, total, maxW, items };
 
       const poly = (it) => {
         const xe = it.x1 + Math.max(it.x2 - it.x1 - 1, 1);
@@ -2512,10 +2549,23 @@
         if (it.x2 - it.x1 > 46) ctx.fillText(stepLabel(flat[it.idx].step), it.x1 + 4, Math.min(it.ya, it.yb) - 4);
       });
 
-      // Selection outline
-      if (selectedPath) {
-        ctx.strokeStyle = colors().ink; ctx.lineWidth = 2;
-        items.forEach(it => { if (pathStarts(flat[it.idx].path, selectedPath)) { poly(it); ctx.stroke(); } });
+      // Selection outline and ramp handles (editor only)
+      if (v.edit) {
+        if (selectedPath) {
+          ctx.strokeStyle = colors().ink; ctx.lineWidth = 2;
+          items.forEach(it => { if (pathStarts(flat[it.idx].path, selectedPath)) { poly(it); ctx.stroke(); } });
+        }
+        ctx.fillStyle = colors().bg; ctx.strokeStyle = colors().ink; ctx.lineWidth = 2;
+        items.forEach(it => {
+          const st = flat[it.idx].step;
+          if (st.b == null || st.unit === 'max' || it.x2 - it.x1 < 18) return;
+          const xe = it.x1 + Math.max(it.x2 - it.x1 - 1, 1);
+          [[it.x1 + 3, it.ya], [xe - 3, it.yb]].forEach(([hx, hy]) => { ctx.beginPath(); ctx.rect(hx - 4, hy - 4, 8, 8); ctx.fill(); ctx.stroke(); });
+        });
+        if (v.dropX != null) {                     // where a dragged interval will land
+          ctx.save(); ctx.strokeStyle = colors().ink; ctx.lineWidth = 3; ctx.setLineDash([6, 4]);
+          ctx.beginPath(); ctx.moveTo(v.dropX, 0); ctx.lineTo(v.dropX, h); ctx.stroke(); ctx.restore();
+        }
       }
 
       // Position bar: shows where you are in the session
@@ -2533,10 +2583,19 @@
     }
     window.addEventListener('resize', drawProfile);
 
-    // Graph interaction: click to select, drag the right edge (length) or top edge (power) with a mouse
+    // Graph interaction (editor graph only): click to select; with a mouse drag an edge (length / power),
+    // a ramp end handle, the middle of a ramp (shifts it) or the body (moves the interval within its level)
     function hitTest(x, y) {
-      if (!gLayout) return null;
-      const items = gLayout.items;
+      const L = views.edit.layout;
+      if (!L) return null;
+      const items = L.items;
+      for (const it of items) {                    // ramp handles first
+        const st = flat[it.idx].step;
+        if (st.b == null || st.unit === 'max' || it.x2 - it.x1 < 18) continue;
+        const xe = it.x1 + Math.max(it.x2 - it.x1 - 1, 1);
+        if (Math.abs(x - (it.x1 + 3)) <= 8 && Math.abs(y - it.ya) <= 8) return { type: 'ha', it };
+        if (Math.abs(x - (xe - 3)) <= 8 && Math.abs(y - it.yb) <= 8) return { type: 'hb', it };
+      }
       for (const it of items) {
         if (Math.abs(x - it.x2) <= 5 && y >= Math.min(it.ya, it.yb) - 2) return { type: 'dur', it };
       }
@@ -2550,9 +2609,53 @@
       }
       return null;
     }
+    // Slots an interval can be dropped into: its siblings at the same level, as time ranges on the graph
+    function siblingSlots(path, sec) {
+      if (path.length === 1) {
+        return workout.map((_, i) => {
+          const es = flat.filter(f => f.path[0] === i);
+          return es.length ? { start: Math.min(...es.map(f => f.start)), end: Math.max(...es.map(f => f.start + f.dur)) } : null;
+        });
+      }
+      const g = workout[path[0]];
+      const es = flat.filter(f => f.path[0] === path[0]);
+      if (!g || !es.length) return [];
+      const gs = Math.min(...es.map(f => f.start));
+      const setLen = g.steps.reduce((a, st) => a + st.duration, 0);
+      const r = clamp(Math.floor((sec - gs) / setLen), 0, g.count - 1);
+      let off = gs + r * setLen;
+      return g.steps.map(st => { const o = { start: off, end: off + st.duration }; off += st.duration; return o; });
+    }
+    function dropTarget(path, sec) {
+      const slots = siblingSlots(path, sec);
+      const from = path[path.length - 1];
+      if (slots.length < 2 || slots.some(x => !x)) return null;
+      let bestG = 0, bestD = Infinity;
+      for (let g = 0; g <= slots.length; g++) {
+        const pos = g < slots.length ? slots[g].start : slots[slots.length - 1].end;
+        const d = Math.abs(pos - sec);
+        if (d < bestD) { bestD = d; bestG = g; }
+      }
+      const to = bestG > from ? bestG - 1 : bestG;
+      const pos = bestG < slots.length ? slots[bestG].start : slots[slots.length - 1].end;
+      return { to, pos, noop: to === from };
+    }
+    function moveToIndex(path, to) {
+      const c = getContainer(path), from = path[path.length - 1];
+      if (!c || to === from || to < 0 || to >= c.length) return false;
+      const lo = Math.min(from, to), hi = Math.max(from, to);
+      for (let k = lo; k <= hi; k++) if (!pathEditable(path.slice(0, -1).concat(k))) { lockMsg(); return false; }
+      pushUndo();
+      const [it] = c.splice(from, 1);
+      c.splice(to, 0, it);
+      selectedPath = path.slice(0, -1).concat(to);
+      modelChanged({ structure: true });
+      return true;
+    }
     let drag = null;
     (function wireGraph() {
-      const cvs = $('profileCanvas');
+      const cvs = $('editCanvas');
+      const V = views.edit;
       const pos = (e) => { const r = cvs.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
       cvs.addEventListener('pointerdown', (e) => {
         const [x, y] = pos(e);
@@ -2560,11 +2663,11 @@
         if (!hit) { selectPath(null); return; }
         const f = flat[hit.it.idx];
         selectPath(f.path.slice());
-        if (e.pointerType === 'touch' || hit.type === 'body' || !pathEditable(f.path) || (hit.type === 'pow' && f.step.unit === 'max')) return;
+        if (e.pointerType === 'touch' || !pathEditable(f.path) || (hit.type !== 'body' && hit.type !== 'dur' && f.step.unit === 'max')) return;
         drag = {
           type: hit.type, path: f.path.slice(), x0: x, y0: y,
           dur0: f.step.duration, a0: f.step.a, b0: f.step.b != null ? f.step.b : null,
-          pps: gLayout.w / gLayout.total, wpp: gLayout.maxW / (gLayout.h - gLayout.top), moved: false
+          pps: V.layout.w / V.layout.total, wpp: V.layout.maxW / (V.layout.h - V.layout.top), moved: false, to: null
         };
         try { cvs.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
       });
@@ -2572,12 +2675,21 @@
         const [x, y] = pos(e);
         if (!drag) {
           const hit = e.pointerType === 'touch' ? null : hitTest(x, y);
-          cvs.style.cursor = !hit ? 'default' : hit.type === 'dur' ? 'ew-resize' : hit.type === 'pow' ? 'ns-resize' : 'pointer';
+          cvs.style.cursor = !hit ? 'default' : hit.type === 'dur' ? 'ew-resize' : (hit.type === 'pow' || hit.type === 'ha' || hit.type === 'hb') ? 'ns-resize' : 'grab';
           return;
         }
         const dx = x - drag.x0, dy = y - drag.y0;
-        if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 3) return;
-        if (!drag.moved) { drag.moved = true; pushUndo(); }
+        if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+        drag.moved = true;
+        if (drag.type === 'body') {                // reorder: only show where it will land until the mouse is released
+          const t = dropTarget(drag.path, x / drag.pps);
+          drag.to = t && !t.noop ? t.to : null;
+          V.dropX = t && !t.noop ? t.pos * drag.pps : null;
+          cvs.style.cursor = 'grabbing';
+          drawProfile();
+          return;
+        }
+        if (!drag.undone) { drag.undone = true; pushUndo(); }
         const st = getItem(drag.path);
         if (!st) return;
         if (drag.type === 'dur') {
@@ -2587,19 +2699,35 @@
           const unitDelta = st.unit === 'pct' ? dW / settings.ftp * 100 : dW;
           const stepSz = st.unit === 'pct' ? 1 : 5;
           const lo = st.unit === 'pct' ? 10 : 30, hi = st.unit === 'pct' ? 400 : 2000;
-          const na = clamp(Math.round((drag.a0 + unitDelta) / stepSz) * stepSz, lo, hi);
-          const delta = na - drag.a0;
-          st.a = na;
-          if (drag.b0 != null) {
-            const nb = clamp(drag.b0 + delta, lo, hi);
-            if (nb === na) delete st.b; else st.b = nb;
+          const snap = (v) => clamp(Math.round(v / stepSz) * stepSz, lo, hi);
+          const ramp = drag.b0 != null;
+          if (drag.type === 'ha' && ramp) {        // start of a ramp
+            st.a = snap(drag.a0 + unitDelta);
+            if (st.a === st.b) delete st.b;
+          } else if (drag.type === 'hb' && ramp) { // end of a ramp
+            const nb = snap(drag.b0 + unitDelta);
+            if (nb === st.a) delete st.b; else st.b = nb;
+          } else {                                 // top edge of a steady interval, or the middle of a ramp: shift it all
+            const na = snap(drag.a0 + unitDelta);
+            const delta = na - drag.a0;
+            st.a = na;
+            if (ramp) {
+              const nb = clamp(drag.b0 + delta, lo, hi);
+              if (nb === na) delete st.b; else st.b = nb;
+            }
           }
         }
         modelChanged({ structure: false });
       });
-      const end = () => { drag = null; };
+      const end = () => {
+        const d = drag; drag = null;
+        if (!d) return;
+        V.dropX = null;
+        if (d.type === 'body' && d.moved && d.to != null) moveToIndex(d.path, d.to);
+        else if (d.type === 'body') drawProfile();
+      };
       cvs.addEventListener('pointerup', end);
-      cvs.addEventListener('pointercancel', end);
+      cvs.addEventListener('pointercancel', () => { drag = null; V.dropX = null; drawProfile(); });
     })();
 
     // ───────────────────────── Summary, history, draft recovery ─────────────────────────
@@ -3453,7 +3581,19 @@
     document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('focus')) setFocusMode(false); });
     $('btnWelcomeOk').onclick = () => { $('welcome').hidden = true; store.set('lean-erg-welcome', 1); };
 
-    const OVERLAYS = ['checkOverlay', 'aboutOverlay', 'settingsOverlay', 'summaryOverlay', 'historyOverlay'];
+    // Workouts window: the editor, library, starter workouts and file import/export
+    function openWorkouts(where) {
+      $('workoutsOverlay').hidden = false;
+      const m = $('workoutsModal');
+      m.scrollTop = 0;
+      drawProfile();
+      if (where === 'library') $('libSection').scrollIntoView({ block: 'start' });
+    }
+    $('btnChoose').onclick = () => openWorkouts('library');
+    $('btnEditWk').onclick = () => openWorkouts('edit');
+    $('btnWkDone').onclick = $('btnWkDone2').onclick = () => { $('workoutsOverlay').hidden = true; drawProfile(); };
+
+    const OVERLAYS = ['checkOverlay', 'aboutOverlay', 'settingsOverlay', 'summaryOverlay', 'historyOverlay', 'workoutsOverlay'];
     const anyOverlay = () => OVERLAYS.some(id => !$(id).hidden);
     function closeTopOverlay() {
       for (const id of OVERLAYS) {
