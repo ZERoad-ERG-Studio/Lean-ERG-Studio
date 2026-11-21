@@ -97,6 +97,9 @@
     #profileCanvas { height: 220px; touch-action: pan-y; }
     #editCanvas { height: 240px; touch-action: pan-y; width: 100%; display: block; }
     #libSection, #editSection { scroll-margin-top: 3.5rem; }
+    .wk-total-big { font-size: 1.6rem; font-weight: 800; letter-spacing: 0.02em; }
+    .wk-total-big b, .wk-total-head b { font-family: var(--mono); font-weight: 700; }
+    .wk-total-head { margin-left: auto; margin-right: 1rem; font-size: 14px; font-weight: 700; }
     .wk-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.6rem; }
     .wk-name { font-weight: 700; }
     .modal.full { max-width: 1200px; height: 92vh; }
@@ -348,7 +351,7 @@
   <!-- Workouts window -->
   <div id="workoutsOverlay" class="overlay" hidden>
     <div class="modal wide full" id="workoutsModal">
-      <div class="modal-head sticky"><h2>Workouts</h2><button id="btnWkDone" class="primary">Done</button></div>
+      <div class="modal-head sticky"><h2>Workouts</h2><span class="wk-total-head">Total <b id="wkTotalHead">00:00</b></span><button id="btnWkDone" class="primary">Done</button></div>
   <!-- Planner -->
   <section class="panel" id="editSection">
     <div class="builder-header">
@@ -364,6 +367,7 @@
       </div>
     </div>
 
+    <div class="wk-total-big">Total <b id="wkTotal">00:00</b></div>
     <canvas id="editCanvas"></canvas>
     <div id="selBar" hidden></div>
     <div class="hint" id="editHint">Click an interval to select it. With a mouse you can drag its right edge (length), its top edge (power), or its body to move it to another place at the same level. Ramps have a handle at each end; drag the middle to shift the whole ramp. Colours show your power zones.</div>
@@ -564,6 +568,7 @@
 
       <section class="set-group legal">
         <h3 style="color:var(--ink)">What's new</h3>
+        <p><b>1.2.1</b> &middot; The Workouts window now shows the total length of the workout, large above the graph and in the top bar so it stays visible while you scroll.</p>
         <p><b>1.2.0</b> &middot; Quicker interval changes: a new "Quick (1 s)" transition is now the default, and the power-meter adjustment waits less after a step, so short intervals such as over-unders are reached sooner with less overshoot. The workout builder, library, starter workouts and file import / export moved into their own Workouts window (Choose workout / Edit workout), with its own graph. In that graph you can drag an interval to move it, and ramps have a handle at each end. The graph on the ride screen is now read-only.</p>
         <p><b>1.1.2</b> &middot; Pairing tries a second time by itself if the first attempt fails (some phones need that), switching the trainer's data channels on in the other order. If a trainer still refuses its live-data channel, power and cadence are taken from its cycling power service while the trainer is still controlled as usual.</p>
         <p><b>1.1.1</b> &middot; Pairing errors now say at which step they happened and the debug info lists the trainer's characteristics. The FE-C setup also copes with trainers that swap the send and receive characteristics. A hint appears when the app is opened from a file instead of the web address. The session and interval times no longer run into each other in full screen once a ride is over an hour.</p>
@@ -654,7 +659,7 @@
     }
 
     // ───────────────────────── Settings ─────────────────────────
-    const APP_VERSION = '1.2.0', APP_DATE = '2026-11-20';
+    const APP_VERSION = '1.2.1', APP_DATE = '2026-11-21';
     const CONTACT_EMAIL = 'zero.fluff.fuel@gmail.com';
     const SITE_URL = 'https://zeroad-erg-studio.github.io/Lean-ERG-Studio/';
     const SUPPORT_URL = 'https://buymeacoffee.com/zero.fluff.fuel';   // "Buy me a coffee" link shown in About (leave empty to hide it)
@@ -1339,14 +1344,15 @@
       });
       const st = seriesStats(series);
       syncRideName();
+      $('wkTotal').textContent = $('wkTotalHead').textContent = fmt(st ? st.n : 0);
       if (!st) { $('planStats').textContent = 'No steps yet'; $('planStatsRide').textContent = ''; return; }
-      let txt = `${fmt(st.n)} · avg ${st.avg} W`;
+      let txt = `avg ${st.avg} W`;
       if (st.np) {
         const ifv = st.np / settings.ftp;
         txt += ` · NP ${st.np} W · IF ${ifv.toFixed(2)} · TSS ~${Math.round(st.n * st.np * ifv / (settings.ftp * 3600) * 100)}`;
       }
       $('planStats').textContent = txt;
-      $('planStatsRide').textContent = txt;
+      $('planStatsRide').textContent = `Total ${fmt(st.n)} · ${txt}`;
     }
 
     // ───────────────────────── Trainer control (FTMS) ─────────────────────────
