@@ -506,6 +506,12 @@
 
       <section class="set-group">
         <h3>Display</h3>
+        <label class="set-row"><span>Date format</span>
+          <select id="setDate" class="in"><option value="dmy">dd/mm/yyyy</option><option value="mdy">mm/dd/yyyy</option><option value="iso">yyyy-mm-dd</option></select>
+        </label>
+        <label class="set-row"><span>Time format</span>
+          <select id="setTime" class="in"><option value="24">24-hour</option><option value="12">12-hour (am/pm)</option></select>
+        </label>
         <div class="set-row"><span>Theme</span><button id="btnTheme" title="Switch between dark and light">Light mode</button></div>
       </section>
 
@@ -568,6 +574,7 @@
 
       <section class="set-group legal">
         <h3 style="color:var(--ink)">What's new</h3>
+        <p><b>1.2.2</b> &middot; Dates and times now show as dd/mm/yyyy and 24-hour by default, whatever language your device uses. Settings has new Date format and Time format choices.</p>
         <p><b>1.2.1</b> &middot; The Workouts window now shows the total length of the workout, large above the graph and in the top bar so it stays visible while you scroll.</p>
         <p><b>1.2.0</b> &middot; Quicker interval changes: a new "Quick (1 s)" transition is now the default, and the power-meter adjustment waits less after a step, so short intervals such as over-unders are reached sooner with less overshoot. The workout builder, library, starter workouts and file import / export moved into their own Workouts window (Choose workout / Edit workout), with its own graph. In that graph you can drag an interval to move it, and ramps have a handle at each end. The graph on the ride screen is now read-only.</p>
         <p><b>1.1.2</b> &middot; Pairing tries a second time by itself if the first attempt fails (some phones need that), switching the trainer's data channels on in the other order. If a trainer still refuses its live-data channel, power and cadence are taken from its cycling power service while the trainer is still controlled as usual.</p>
@@ -635,6 +642,18 @@
       clearTimeout(noticeTimer);
       if (msg) noticeTimer = setTimeout(() => { $('notice').textContent = ''; }, ms || 4500);
     }
+    // Date and time in the format chosen in Settings (default dd/mm/yyyy, 24-hour)
+    function fmtDateTime(d) {
+      d = d instanceof Date ? d : new Date(d);
+      if (isNaN(d)) return '';
+      const z = (n) => String(n).padStart(2, '0');
+      const Y = d.getFullYear(), M = z(d.getMonth() + 1), D = z(d.getDate());
+      const date = settings.dateFmt === 'mdy' ? `${M}/${D}/${Y}` : settings.dateFmt === 'iso' ? `${Y}-${M}-${D}` : `${D}/${M}/${Y}`;
+      let h = d.getHours(), t;
+      if (settings.timeFmt === '12') { const ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12; t = `${h}:${z(d.getMinutes())} ${ap}`; }
+      else t = `${z(h)}:${z(d.getMinutes())}`;
+      return `${date} ${t}`;
+    }
     function lockMsg() { notice('That interval has already started, so it can’t be changed during the session. Later intervals can.'); }
 
     function fmt(sec) {
@@ -659,11 +678,11 @@
     }
 
     // ───────────────────────── Settings ─────────────────────────
-    const APP_VERSION = '1.2.1', APP_DATE = '2026-11-21';
+    const APP_VERSION = '1.2.2', APP_DATE = '2026-11-23';
     const CONTACT_EMAIL = 'zero.fluff.fuel@gmail.com';
     const SITE_URL = 'https://zeroad-erg-studio.github.io/Lean-ERG-Studio/';
     const SUPPORT_URL = 'https://buymeacoffee.com/zero.fluff.fuel';   // "Buy me a coffee" link shown in About (leave empty to hide it)
-    let settings = Object.assign({ ftp: 200, weight: 0, smooth: 1, smoothVer: 2, sound: true, unit: 'w', units: 'metric', autoPause: false, speech: false, maxHR: 0, maxGrade: 2 }, store.get(SETTINGS_KEY, {}));
+    let settings = Object.assign({ ftp: 200, weight: 0, smooth: 1, smoothVer: 2, sound: true, unit: 'w', units: 'metric', autoPause: false, speech: false, maxHR: 0, maxGrade: 2, dateFmt: 'dmy', timeFmt: '24' }, store.get(SETTINGS_KEY, {}));
     if ((store.get(SETTINGS_KEY, {}) || {}).smoothVer !== 2) { settings.smooth = 1; settings.smoothVer = 2; }   // 1.2.0: quicker default (the old 3 s was only a default)
     settings.ftp = clamp(Math.round(Number(settings.ftp)) || 200, 50, 600);
     settings.units = settings.units === 'imperial' ? 'imperial' : 'metric';
@@ -2995,7 +3014,7 @@
       if (est) { $('sumFtpText').textContent = est.text; $('btnUseFtp').hidden = !est.ok; if (est.ok) $('btnUseFtp').textContent = `Use ${est.ftp} W as my FTP`; }
 
       const start = view ? view.start : sessionStart;
-      $('sumDate').textContent = start ? `${view ? view.name : workoutName} · ${start.toLocaleString()}` : '';
+      $('sumDate').textContent = start ? `${view ? view.name : workoutName} · ${fmtDateTime(start)}` : '';
       $('btnSumNew').hidden = !!view;
       $('btnSumAgain').hidden = !view;
       sumMsg('');
@@ -3048,7 +3067,7 @@
       if (!e) return;
       e.name = name;
       store.set(HISTORY_KEY, h);
-      if (viewing && viewing.id === id) { viewing.name = name; $('sumDate').textContent = `${name} · ${viewing.start.toLocaleString()}`; }
+      if (viewing && viewing.id === id) { viewing.name = name; $('sumDate').textContent = `${name} · ${fmtDateTime(viewing.start)}`; }
     }
     function openSession(id) {
       const v = getSession(id);
@@ -3080,6 +3099,11 @@
       showHistory();
     }
 
+    function refreshDates() {
+      if (!$('historyOverlay').hidden) showHistory();
+      const st = viewing ? viewing.start : sessionStart;
+      if (st && !$('summaryOverlay').hidden) $('sumDate').textContent = `${viewing ? viewing.name : workoutName} · ${fmtDateTime(st)}`;
+    }
     function showHistory() {
       const body = $('histRows');
       body.textContent = '';
@@ -3093,7 +3117,7 @@
       h.forEach((e) => {
         const tr = document.createElement('tr');
         const cell = (txt) => { const td = document.createElement('td'); td.textContent = txt; tr.appendChild(td); };
-        cell(new Date(e.date).toLocaleString());
+        cell(fmtDateTime(e.date));
         const tdName = document.createElement('td');
         const inp = document.createElement('input');
         inp.className = 'in'; inp.type = 'text'; inp.maxLength = 60; inp.value = e.name || '';
@@ -3219,6 +3243,8 @@
       $('setMaxHR').value = settings.maxHR || '';
       settingsChanged();
     });
+    $('setDate').addEventListener('change', () => { settings.dateFmt = $('setDate').value; saveSettings(); refreshDates(); });
+    $('setTime').addEventListener('change', () => { settings.timeFmt = $('setTime').value; saveSettings(); refreshDates(); });
     $('setUnits').addEventListener('change', () => {
       settings.units = $('setUnits').value === 'imperial' ? 'imperial' : 'metric';
       applyUnitsUI();
@@ -3769,6 +3795,8 @@
       $('setFtp').value = settings.ftp;
       $('setMaxHR').value = settings.maxHR || '';
       $('setUnits').value = settings.units;
+      $('setDate').value = settings.dateFmt;
+      $('setTime').value = settings.timeFmt;
       applyUnitsUI();
       $('setSmooth').value = String(settings.smooth);
       $('setSound').checked = !!settings.sound;
